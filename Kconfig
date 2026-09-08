@@ -1,0 +1,8 @@
+# Kconfig root for SF32LB52 NS2Pro Bridge.
+source "$SIFLI_SDK/Kconfig.v2"
+rsource "Kconfig.proj"
+
+config CUSTOM_MEM_MAP
+    bool
+    select custom_mem_map
+    default y if !SOC_SIMULATOR

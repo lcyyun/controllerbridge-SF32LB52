@@ -1,0 +1,802 @@
+{
+  "schemaVersion": 1,
+  "repository": "controllerbridge-SF32LB52",
+  "implementation": "source",
+  "preparationOnly": true,
+  "sourceUnchangedVerifiedAtUtc": "2026-09-08T14:55:06.0390779Z",
+  "provenance": "Working-file SHA256 snapshot; not a Git commit or build attestation.",
+  "files": [
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": ".gitattributes",
+      "destinationRelativePath": ".gitattributes",
+      "size": 343,
+      "sha256": "4725c98f05cf6467834ec885eeec5df9883f0d99316482d6865ddf4a6704e16c",
+      "lastWriteUtcTicks": 639167716754489062
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/app/main.c",
+      "destinationRelativePath": "app/main.c",
+      "size": 318,
+      "sha256": "2d13ad6dfa750555a26ddc1591808aa730c06d1981abf2f167162091dfda2d40",
+      "lastWriteUtcTicks": 639184069393859538
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/app/SConscript",
+      "destinationRelativePath": "app/SConscript",
+      "size": 271,
+      "sha256": "7e3e90a593ebe280564575c10bea1c624dce14fcd8995301295f53898c410019",
+      "lastWriteUtcTicks": 639185295201947884
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/boards/SF32LB52_LCD_N16R8/board_config.h",
+      "destinationRelativePath": "boards/SF32LB52_LCD_N16R8/board_config.h",
+      "size": 519,
+      "sha256": "d189956a91dd33d6c02a10afd3c5c68fc1f76fc09a0deb5e8cdc08ec0719ced7",
+      "lastWriteUtcTicks": 639184069393728881
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/CMakeLists.txt",
+      "destinationRelativePath": "CMakeLists.txt",
+      "size": 1918,
+      "sha256": "b869dba071eab601d2e51ae8199920d0891b0421da4f6dc3fd5f54f44ed013b9",
+      "lastWriteUtcTicks": 639230765606869723
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/ble_gatt.h",
+      "destinationRelativePath": "include/ble_gatt.h",
+      "size": 2035,
+      "sha256": "87ca3f90ee09d261fe2ec105f27db3f238be824616e0a3fe2ee17e351ce4ac29",
+      "lastWriteUtcTicks": 639197142536997960
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/ds5_classic.h",
+      "destinationRelativePath": "include/ds5_classic.h",
+      "size": 6232,
+      "sha256": "642b2bf9930f3508e26c00e2755d01d23fd0772d406a2a99fb83d03b28d390aa",
+      "lastWriteUtcTicks": 639230522501634974
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/ns2_profile.h",
+      "destinationRelativePath": "include/ns2_profile.h",
+      "size": 1300,
+      "sha256": "663c74579dfd7ceb815423cadd73d98c7c0e45e8751fa80548bcb2242111a147",
+      "lastWriteUtcTicks": 639231421911011036
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/platform.h",
+      "destinationRelativePath": "include/platform.h",
+      "size": 359,
+      "sha256": "4cd33922aba4caec1377dcebbf2c12290e09cc259a6a7be38199fb97f475ea2d",
+      "lastWriteUtcTicks": 639230524109133066
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/sf32lb52_app.h",
+      "destinationRelativePath": "include/sf32lb52_app.h",
+      "size": 745,
+      "sha256": "a945056a51a654cc47aeb854029ad9bd9ae05bcb7bc2cfc0bd16bc1d166f7ec0",
+      "lastWriteUtcTicks": 639231036190990572
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/sf32lb52_audio_haptics.h",
+      "destinationRelativePath": "include/sf32lb52_audio_haptics.h",
+      "size": 1860,
+      "sha256": "27eed8a8c319fad022831d15b601fdd4555d3dd5cb6108f49b0c89fd9e3708db",
+      "lastWriteUtcTicks": 639231438876513984
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/sf32lb52_bridge_mapping_store.h",
+      "destinationRelativePath": "include/sf32lb52_bridge_mapping_store.h",
+      "size": 904,
+      "sha256": "5622cfc4d8ba62502b94145523add78bbe4e8a8c6bfcd1b03a37bc98d62d85e6",
+      "lastWriteUtcTicks": 639243943322346528
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/sf32lb52_bridge_mapping.h",
+      "destinationRelativePath": "include/sf32lb52_bridge_mapping.h",
+      "size": 4291,
+      "sha256": "7aa32634ec3e8424606adac5a8dfedc54c5b9f8a6404fe33ac594416e55c09a1",
+      "lastWriteUtcTicks": 639244635992089980
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/sf32lb52_bridge_protocol.h",
+      "destinationRelativePath": "include/sf32lb52_bridge_protocol.h",
+      "size": 7689,
+      "sha256": "d02d31a6e3d0179546d40007f2da9aad3678613eee2cbc8259c1f5a606ae25e7",
+      "lastWriteUtcTicks": 639231434944587353
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/sf32lb52_bridge_runtime.h",
+      "destinationRelativePath": "include/sf32lb52_bridge_runtime.h",
+      "size": 5425,
+      "sha256": "e697a4d92ce058ba07f2533e54a70ef3fc20a962bb65a2cc280244cdba3c08d7",
+      "lastWriteUtcTicks": 639244635992110656
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/sf32lb52_bridge_settings.h",
+      "destinationRelativePath": "include/sf32lb52_bridge_settings.h",
+      "size": 1512,
+      "sha256": "6ea4c1a4ab7581a2affba0874a9f1a8b764b5e8bfb43ccc870c067bf8f441eef",
+      "lastWriteUtcTicks": 639196023713322038
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/sf32lb52_ds5_feature.h",
+      "destinationRelativePath": "include/sf32lb52_ds5_feature.h",
+      "size": 2561,
+      "sha256": "a459afe67ebda0dbb59751084601aa4bbfa896622f00fe89e4ca2f4f848e5fb6",
+      "lastWriteUtcTicks": 639230476964841558
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/sf32lb52_ds5_output_state.h",
+      "destinationRelativePath": "include/sf32lb52_ds5_output_state.h",
+      "size": 852,
+      "sha256": "d471706fd76bba0dfabc4f472808fa3233b4986c7de962917c1f9b4048488b3c",
+      "lastWriteUtcTicks": 639230765606811615
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/sf32lb52_manager_protocol.h",
+      "destinationRelativePath": "include/sf32lb52_manager_protocol.h",
+      "size": 1273,
+      "sha256": "c7562e8cc1c1803981c43e786e48ecbc1496dce74b66a52bdff3731001bcdff7",
+      "lastWriteUtcTicks": 639231395776612210
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/sf32lb52_ns2_gatt.h",
+      "destinationRelativePath": "include/sf32lb52_ns2_gatt.h",
+      "size": 2026,
+      "sha256": "cd1aac850959d61a0179eb98a3a8cd39572e7134ea69b0b3b80910cba69f40b8",
+      "lastWriteUtcTicks": 639197142536927319
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/sf32lb52_ns2_protocol.h",
+      "destinationRelativePath": "include/sf32lb52_ns2_protocol.h",
+      "size": 5391,
+      "sha256": "bed9e230d8490bc7138feb0eb081cc41603741a9492016f824f979efe9f17bef",
+      "lastWriteUtcTicks": 639230524109172073
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/sf32lb52_ns2_vendor.h",
+      "destinationRelativePath": "include/sf32lb52_ns2_vendor.h",
+      "size": 639,
+      "sha256": "f2c885df8950f38f9bc418ebea07307be93c19808aa50da3167de1ac90154db6",
+      "lastWriteUtcTicks": 639230490959494964
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/sf32lb52_usb_device.h",
+      "destinationRelativePath": "include/sf32lb52_usb_device.h",
+      "size": 8554,
+      "sha256": "b3c7f7472c94888cff9e22169e25f81a336caf0b0a9aef2ce14785194d6698bb",
+      "lastWriteUtcTicks": 639231421133580749
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/include/sf32lb52_usb_hid_api.h",
+      "destinationRelativePath": "include/sf32lb52_usb_hid_api.h",
+      "size": 1431,
+      "sha256": "d19c3f6c847a04fc244919a29c42ffd64ef563a6c2059fd59756186092016d5b",
+      "lastWriteUtcTicks": 639184991258755630
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/Kconfig",
+      "destinationRelativePath": "Kconfig",
+      "size": 187,
+      "sha256": "d9a999fd845cf9fbd9377ccd333f1813cf3c5c3d4d429608515613401854485d",
+      "lastWriteUtcTicks": 639184978225508434
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/Kconfig.proj",
+      "destinationRelativePath": "Kconfig.proj",
+      "size": 183,
+      "sha256": "aedff84699b881077abc50bfbe0052355dc4ad197ee862f23dc9ba87b07a9592",
+      "lastWriteUtcTicks": 639185292952991539
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "LICENSE",
+      "destinationRelativePath": "LICENSE",
+      "size": 1084,
+      "sha256": "18959cac90c14ea1fbaf61e5068f627eb61a01bb69c695620fd4d6105bdecc7a",
+      "lastWriteUtcTicks": 639163031318701839
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "LICENSES/DS5Dongle-MIT.txt",
+      "destinationRelativePath": "LICENSES/DS5Dongle-MIT.txt",
+      "size": 1084,
+      "sha256": "18959cac90c14ea1fbaf61e5068f627eb61a01bb69c695620fd4d6105bdecc7a",
+      "lastWriteUtcTicks": 639163031318701839
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "LICENSES/y700-switch2-pro-bridge-Apache-2.0.txt",
+      "destinationRelativePath": "LICENSES/y700-switch2-pro-bridge-Apache-2.0.txt",
+      "size": 11560,
+      "sha256": "de260a483f1c8a229d61d833aaabad9f9a7438f3384c59abefa50182cb798199",
+      "lastWriteUtcTicks": 639163031318761405
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "NOTICE.md",
+      "destinationRelativePath": "NOTICE.md",
+      "size": 5713,
+      "sha256": "07611a42ecb1507480302d32bd93e4c07624ce5920ab8ce33b3a9ae00fa51791",
+      "lastWriteUtcTicks": 639231438629952219
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/proj.conf",
+      "destinationRelativePath": "proj.conf",
+      "size": 767,
+      "sha256": "40e6919100ecd436462eb9469399b553b0cf8a2a2c9a95bf9b9d9796a75864f5",
+      "lastWriteUtcTicks": 639230563255049189
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/protocol/SConscript",
+      "destinationRelativePath": "protocol/SConscript",
+      "size": 206,
+      "sha256": "5cd9c2551d3b5f45b13466be4c7c5a8522d28c0c50554fa103dbb6ae1b84806b",
+      "lastWriteUtcTicks": 639184081983729660
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/protocol/sf32lb52_audio_haptics.c",
+      "destinationRelativePath": "protocol/sf32lb52_audio_haptics.c",
+      "size": 12611,
+      "sha256": "4481089ad50c856ffca679fe589e6ba329e0d3845a085541a739d703ea9a0a90",
+      "lastWriteUtcTicks": 639231438876533997
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/protocol/sf32lb52_bridge_mapping.c",
+      "destinationRelativePath": "protocol/sf32lb52_bridge_mapping.c",
+      "size": 18972,
+      "sha256": "917cf19fa78f907bec96c40b71cd777c2e321c80ec046c6c819df426198a794a",
+      "lastWriteUtcTicks": 639243946463799861
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/protocol/sf32lb52_bridge_protocol.c",
+      "destinationRelativePath": "protocol/sf32lb52_bridge_protocol.c",
+      "size": 31162,
+      "sha256": "5513d91a128619c330d1b9da2302499bb1af8d260f3a7a0d119c3de2fc9be69f",
+      "lastWriteUtcTicks": 639231415949033057
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/protocol/sf32lb52_ds5_feature.c",
+      "destinationRelativePath": "protocol/sf32lb52_ds5_feature.c",
+      "size": 6396,
+      "sha256": "63f6377f10d317ee2866d762cca8556650123c3bfb7ab50564f4f47abe1a53ee",
+      "lastWriteUtcTicks": 639230476964857504
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/protocol/sf32lb52_ds5_output_state.c",
+      "destinationRelativePath": "protocol/sf32lb52_ds5_output_state.c",
+      "size": 2437,
+      "sha256": "bef656beb1db4369dd6f29f9fe6921b18dd7e374170fdd1be2949666eab59acd",
+      "lastWriteUtcTicks": 639230765606821655
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/protocol/sf32lb52_manager_protocol.c",
+      "destinationRelativePath": "protocol/sf32lb52_manager_protocol.c",
+      "size": 3328,
+      "sha256": "93a5a7dc799119e782350c5288d2e4ce14e91f3641b0cab943942c8beea6ec0d",
+      "lastWriteUtcTicks": 639231395776627939
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/protocol/sf32lb52_ns2_gatt.c",
+      "destinationRelativePath": "protocol/sf32lb52_ns2_gatt.c",
+      "size": 11386,
+      "sha256": "57d412d3506950f53ef0b41ddce787964eba08dde6cbb3027cf792def8a24bc6",
+      "lastWriteUtcTicks": 639197142536963655
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/protocol/sf32lb52_ns2_protocol.c",
+      "destinationRelativePath": "protocol/sf32lb52_ns2_protocol.c",
+      "size": 22429,
+      "sha256": "860aee1f6ea8572a84ad639e6d7a6cb7bf895ca30595eb9ee5b8bebb0ad8a6d8",
+      "lastWriteUtcTicks": 639230524109193214
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/protocol/sf32lb52_ns2_vendor.c",
+      "destinationRelativePath": "protocol/sf32lb52_ns2_vendor.c",
+      "size": 7412,
+      "sha256": "f4fe48fe6d19305bbd3b5328869316270cdb4d86afe06965546c6abac533d043",
+      "lastWriteUtcTicks": 639230490959511179
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/README.md",
+      "destinationRelativePath": "README.md",
+      "size": 15046,
+      "sha256": "c2951788fc49a54609f60bf76ad4ca56f65e08fccaac84b8eab78e8c31d53c00",
+      "lastWriteUtcTicks": 639243872351956610
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/rtconfig_project.h",
+      "destinationRelativePath": "rtconfig_project.h",
+      "size": 408,
+      "sha256": "c94b9275850198862f924ab31e791af1a6675db1f759bf1e258d4227613d0fca",
+      "lastWriteUtcTicks": 639184081983647699
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/rtconfig.py",
+      "destinationRelativePath": "rtconfig.py",
+      "size": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "lastWriteUtcTicks": 639184978225539725
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/SConscript",
+      "destinationRelativePath": "SConscript",
+      "size": 341,
+      "sha256": "124a14e1f14edc4bd020e84f06c0b6a92d565cb56c1a4b1c424a8ca3d36ea4ea",
+      "lastWriteUtcTicks": 639230563255019124
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/SConstruct",
+      "destinationRelativePath": "SConstruct",
+      "size": 479,
+      "sha256": "8b303aaa92ce025e6225ce0b9b0ed0549a0896d96363ed73ea7a535c6fc182dc",
+      "lastWriteUtcTicks": 639184978225430285
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/src/ble_gatt_sifli.c",
+      "destinationRelativePath": "src/ble_gatt_sifli.c",
+      "size": 58069,
+      "sha256": "5130544283b0e3992db1c55e612679710c94a1dfba4ee12f148afc95bebed28e",
+      "lastWriteUtcTicks": 639230705375583047
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/src/ds5_classic_sifli.c",
+      "destinationRelativePath": "src/ds5_classic_sifli.c",
+      "size": 77725,
+      "sha256": "b324be25b2078486e2b0460836ad4db179fc8b0c63b6dad0fa90c0fce4ad8097",
+      "lastWriteUtcTicks": 639230765606841651
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/src/ns2_profile.c",
+      "destinationRelativePath": "src/ns2_profile.c",
+      "size": 74028,
+      "sha256": "cb7ad0cb62b575a0400f70e8004c880d2d310b4f8eb79980a67ac0f0bd151c85",
+      "lastWriteUtcTicks": 639243951662155692
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/src/platform_sifli.c",
+      "destinationRelativePath": "src/platform_sifli.c",
+      "size": 2342,
+      "sha256": "a99d981053127c134bd04ce0caff6c3feed64cef17af9be54e3428666ec815db",
+      "lastWriteUtcTicks": 639230524109148722
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/src/SConscript",
+      "destinationRelativePath": "src/SConscript",
+      "size": 610,
+      "sha256": "659fb25e2b9f78c47a570bb8d4da2f656438d5d2a378ce9ea886b1de42a1abd5",
+      "lastWriteUtcTicks": 639230556178125495
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/src/sf32lb52_app.c",
+      "destinationRelativePath": "src/sf32lb52_app.c",
+      "size": 57509,
+      "sha256": "6513f8fd48c97be071ee314f9c34ec93010fac307f7e6d832d9ea880bba6dad7",
+      "lastWriteUtcTicks": 639231660815760146
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/src/sf32lb52_bridge_mapping_store.c",
+      "destinationRelativePath": "src/sf32lb52_bridge_mapping_store.c",
+      "size": 5377,
+      "sha256": "8052efdbb2d3066adea3dd48cc0129ab7234f150944badb99736d140764fcbb6",
+      "lastWriteUtcTicks": 639244634015183799
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/src/sf32lb52_bridge_runtime.c",
+      "destinationRelativePath": "src/sf32lb52_bridge_runtime.c",
+      "size": 28385,
+      "sha256": "e84c6cfa46acd69b7446ccc333f240b1ac9df839ba2c0a2a74c1c5f89154612a",
+      "lastWriteUtcTicks": 639243951175006094
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/src/sf32lb52_bridge_settings.c",
+      "destinationRelativePath": "src/sf32lb52_bridge_settings.c",
+      "size": 8544,
+      "sha256": "a8a7fcdb8077e4d65b1b878a466bbd620b2be2422b41bbe65814543ebbed01ff",
+      "lastWriteUtcTicks": 639230524380940599
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/src/usb_hid_cherryusb.c",
+      "destinationRelativePath": "src/usb_hid_cherryusb.c",
+      "size": 2038,
+      "sha256": "2edeb7876b40331ad0f159b418f250eb821812ef16fe1012660eb2ee26d5d627",
+      "lastWriteUtcTicks": 639186071956863360
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/build_flash.ps1",
+      "destinationRelativePath": "tools/build_flash.ps1",
+      "size": 3767,
+      "sha256": "3667c6a041522ede99ba30ef339b5f509c0111ee6f087d6541f36b6a4cafaed3",
+      "lastWriteUtcTicks": 639230556178146383
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/hid_feature_smoke.ps1",
+      "destinationRelativePath": "tools/hid_feature_smoke.ps1",
+      "size": 14952,
+      "sha256": "9329f311074f30da51d08e29f3d4ff6023e13af9048d96b9cb723d421c4dc34e",
+      "lastWriteUtcTicks": 639231397996369433
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/mapping_nvds_stub/bf0_sibles_nvds.h",
+      "destinationRelativePath": "tools/mapping_nvds_stub/bf0_sibles_nvds.h",
+      "size": 713,
+      "sha256": "f26c43a72717e2d86c74feaa7a8c9cbd8e52c34ab7990b1f408dcd4edc9130df",
+      "lastWriteUtcTicks": 639244632955496305
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/mapping_nvds_stub/fake_nvds.c",
+      "destinationRelativePath": "tools/mapping_nvds_stub/fake_nvds.c",
+      "size": 2713,
+      "sha256": "fc88f7cfcff6de25cee80ddb72bbf9d5bfe6c5b9e7803460e36907dd25867246",
+      "lastWriteUtcTicks": 639244632955507248
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_audio_haptics.c",
+      "destinationRelativePath": "tools/test_audio_haptics.c",
+      "size": 5839,
+      "sha256": "a7f3a2818016beb5b8fbc0a078ac54fed7bcd9b5c56007539655437a307072ff",
+      "lastWriteUtcTicks": 639231438876543998
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_audio_haptics.py",
+      "destinationRelativePath": "tools/test_audio_haptics.py",
+      "size": 1675,
+      "sha256": "c36f3fa791701ea7cbb3226441bf5f8fdc98b21576c58f80e6bc80506c3aafa7",
+      "lastWriteUtcTicks": 639231419394526224
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_bridge_mapping_store.c",
+      "destinationRelativePath": "tools/test_bridge_mapping_store.c",
+      "size": 9030,
+      "sha256": "3a0bf914dcd650bf607d84ed1ae648720073f4e629e0f9b698a933ee38c0d980",
+      "lastWriteUtcTicks": 639244635992060004
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_bridge_mapping.c",
+      "destinationRelativePath": "tools/test_bridge_mapping.c",
+      "size": 14997,
+      "sha256": "feefcb6122109b1c6389efb3b646d818014f3ec8b60828a67fb5681ff5c705d7",
+      "lastWriteUtcTicks": 639244636942479761
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_bridge_mapping.py",
+      "destinationRelativePath": "tools/test_bridge_mapping.py",
+      "size": 2435,
+      "sha256": "74d43096df059271190ebb147f4ad82a77c8a7665503efdf739af69709e79559",
+      "lastWriteUtcTicks": 639244632955558969
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_bridge_protocol.c",
+      "destinationRelativePath": "tools/test_bridge_protocol.c",
+      "size": 21778,
+      "sha256": "9b35d3c795400ff8b001730c1bb21143bbb955f51269145222eded1ae9fb4e5f",
+      "lastWriteUtcTicks": 639231415949053078
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_bridge_protocol.py",
+      "destinationRelativePath": "tools/test_bridge_protocol.py",
+      "size": 3491,
+      "sha256": "07746c72be48249c189eff2ff575b6315a8a5f8d2530582d85230c347edf78ff",
+      "lastWriteUtcTicks": 639196033993654329
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_bridge_runtime.c",
+      "destinationRelativePath": "tools/test_bridge_runtime.c",
+      "size": 26156,
+      "sha256": "7d0fd5078b9e4580bf67435bdd73a5fdbd579620165312e5be6a36b191c757d9",
+      "lastWriteUtcTicks": 639244635992016416
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_bridge_runtime.py",
+      "destinationRelativePath": "tools/test_bridge_runtime.py",
+      "size": 2491,
+      "sha256": "c37f0c573452e8de84676ca517a3e467f7fc57e9f469696622a45054fee15660",
+      "lastWriteUtcTicks": 639244635992036410
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_ds5_feature.c",
+      "destinationRelativePath": "tools/test_ds5_feature.c",
+      "size": 2611,
+      "sha256": "23254c52934c9696237212ea10997e49074e63c48ab6cc9f6395baa37ad826a3",
+      "lastWriteUtcTicks": 639230476964870408
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_ds5_feature.py",
+      "destinationRelativePath": "tools/test_ds5_feature.py",
+      "size": 1603,
+      "sha256": "6dbc9e87c0b13ed6973fa681cc5dd04cf0bbe6b9db37f8fdad9cf2d5d29aff4b",
+      "lastWriteUtcTicks": 639230476964880931
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_ds5_output_state.c",
+      "destinationRelativePath": "tools/test_ds5_output_state.c",
+      "size": 3683,
+      "sha256": "ce995d59cbdc8e879e57931dad775dfb09d831c3c4d700639385225bfc4511c0",
+      "lastWriteUtcTicks": 639230765606821655
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_ds5_output_state.py",
+      "destinationRelativePath": "tools/test_ds5_output_state.py",
+      "size": 1619,
+      "sha256": "1882f912cdd8b82d7524175c819294a006739be3ffc04ccd0d3611e134ef8862",
+      "lastWriteUtcTicks": 639230765606831652
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_manager_protocol.c",
+      "destinationRelativePath": "tools/test_manager_protocol.c",
+      "size": 2904,
+      "sha256": "edfe7980d043fb0756e5039a4dcd104c4bdbc451b1e42376ad032d1567501d5c",
+      "lastWriteUtcTicks": 639231395776640709
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_manager_protocol.py",
+      "destinationRelativePath": "tools/test_manager_protocol.py",
+      "size": 1675,
+      "sha256": "e39a8e2dca25ffe7a24197d6d91f675ef8f122634c72b6a4bc58fc11f0cc8d7e",
+      "lastWriteUtcTicks": 639230986837373787
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_ns2_protocol.c",
+      "destinationRelativePath": "tools/test_ns2_protocol.c",
+      "size": 8113,
+      "sha256": "0956948e2f06c6bcf64348ae3fb28328a3d01c536ca8788c1e7f0666ec8d0d9b",
+      "lastWriteUtcTicks": 639230524649046251
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_ns2_protocol.py",
+      "destinationRelativePath": "tools/test_ns2_protocol.py",
+      "size": 3177,
+      "sha256": "a9eccbd3abf0f4709ebe852a2236b018d8854faa544c7908ad32ab820d8d7521",
+      "lastWriteUtcTicks": 639196040354997724
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_ns2_vendor.c",
+      "destinationRelativePath": "tools/test_ns2_vendor.c",
+      "size": 2507,
+      "sha256": "584a9358fed9942a2244897faae160ba24dbfb42915b8412f6beaee7f8d7f5cd",
+      "lastWriteUtcTicks": 639230490959524421
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_ns2_vendor.py",
+      "destinationRelativePath": "tools/test_ns2_vendor.py",
+      "size": 1611,
+      "sha256": "f737f8d93662fb42e0f1daf274a190b802236187880fb71d724fc1a3d8c0fb05",
+      "lastWriteUtcTicks": 639230490959545351
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_usb_device.c",
+      "destinationRelativePath": "tools/test_usb_device.c",
+      "size": 13111,
+      "sha256": "c9e82f9a292e8415784fc803f49d9ef55448bba3e94a5dddefad60f8edd82bc6",
+      "lastWriteUtcTicks": 639230528777998414
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/test_usb_device.py",
+      "destinationRelativePath": "tools/test_usb_device.py",
+      "size": 2681,
+      "sha256": "137cd7d48da0c3dd900d8ba9bb7fcdc7ed515d75979f171ab2173f84b6529afa",
+      "lastWriteUtcTicks": 639196092707121128
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/validate_descriptors.py",
+      "destinationRelativePath": "tools/validate_descriptors.py",
+      "size": 17169,
+      "sha256": "c906436e00132fd307f3162040ffda9b55a563dfcf8de486044d9adf0dc30572",
+      "lastWriteUtcTicks": 639231045095115625
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/tools/webhid_smoke.html",
+      "destinationRelativePath": "tools/webhid_smoke.html",
+      "size": 3098,
+      "sha256": "79aa042a0a07e1bae006fdf67e2b5bec95704a58087774ecaaaa46712c7e7e96",
+      "lastWriteUtcTicks": 639230483346471166
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/usb/cherryusb_sifli/usb_dc_musb.c",
+      "destinationRelativePath": "usb/cherryusb_sifli/usb_dc_musb.c",
+      "size": 29965,
+      "sha256": "62d337511302748a605c0e1a6dc0653aafc405b8bd7257298df2650e91db3817",
+      "lastWriteUtcTicks": 639230571194157271
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/usb/cherryusb_sifli/usb_glue_sifli.c",
+      "destinationRelativePath": "usb/cherryusb_sifli/usb_glue_sifli.c",
+      "size": 6076,
+      "sha256": "ff1f7b9e35ed79bb68439758a9eadfa57bfb52077f78c176eea4c82114844d76",
+      "lastWriteUtcTicks": 639184076323118206
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/usb/SConscript",
+      "destinationRelativePath": "usb/SConscript",
+      "size": 886,
+      "sha256": "d48d4463dd7ee7d1254109b8879a68c08a2b076dbb706b0a02d391aca63c9b44",
+      "lastWriteUtcTicks": 639230563255029179
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/usb/sf32lb52_usb_device.c",
+      "destinationRelativePath": "usb/sf32lb52_usb_device.c",
+      "size": 96804,
+      "sha256": "fdc9254c166ea3e71f28181e324edfeae9d9514b61d25bafb70f8b10343dabfd",
+      "lastWriteUtcTicks": 639231438578843682
+    },
+    {
+      "repository": "controllerbridge-SF32LB52",
+      "source": "main",
+      "sourceRelativePath": "firmware/sf32lb52/usb/usb_config.h",
+      "destinationRelativePath": "usb/usb_config.h",
+      "size": 1530,
+      "sha256": "9f2f13d46c06230579738c0e4d653476e890ee67d8805a6032cc9d451075408f",
+      "lastWriteUtcTicks": 639184990613376091
+    }
+  ]
+}

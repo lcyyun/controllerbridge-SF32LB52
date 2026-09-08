@@ -1,0 +1,12 @@
+menu "SF32LB52 NS2Pro Bridge"
+
+config SF32LB52_NS2PRO_BRIDGE
+    bool
+    default y
+
+endmenu
+
+config CUSTOM_MEM_MAP
+    bool
+    select custom_mem_map
+    default y if !SOC_SIMULATOR

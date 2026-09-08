@@ -1,0 +1,87 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>SF32LB52 WebHID Smoke</title>
+<button id="connect">Connect</button>
+<button id="status">status</button>
+<button id="bridge">bridge status</button>
+<button id="usb">usb status</button>
+<button id="settings">settings</button>
+<button data-command="role set xbox">role: Xbox</button>
+<button data-command="role set ds5">role: DS5</button>
+<button data-command="role set ns2pro">role: NS2Pro</button>
+<pre id="log"></pre>
+<script>
+const ROLE_FILTERS = [
+  { vendorId: 0x045e, productId: 0x028e },
+  { vendorId: 0x054c, productId: 0x0ce6 },
+  { vendorId: 0x057e, productId: 0x2069 },
+];
+const DEFAULT_FEATURE_ID = 0x7f;
+const DS5_FEATURE_ID = 0xf6;
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+let device;
+
+function log(line) {
+  document.querySelector("#log").textContent += line + "\n";
+}
+
+async function connect() {
+  const devices = await navigator.hid.requestDevice({ filters: ROLE_FILTERS });
+  device = devices[0];
+  if (!device) return;
+  await device.open();
+  log(`connected ${device.productName || "unknown"} ${device.vendorId.toString(16)}:${device.productId.toString(16)}`);
+}
+
+async function command(text) {
+  if (!device) await connect();
+  const featureId = device.vendorId === 0x054c &&
+    (device.productId === 0x0ce6 || device.productId === 0x0df2)
+    ? DS5_FEATURE_ID : DEFAULT_FEATURE_ID;
+  const report = new Uint8Array(63);
+  report.set(enc.encode("Y7HID1" + text).slice(0, 63));
+  await device.sendFeatureReport(featureId, report);
+  const chunks = [];
+  let total = 0;
+  for (let i = 0; i < 32; i++) {
+    const reply = new Uint8Array(await device.receiveFeatureReport(featureId));
+    if (dec.decode(reply.slice(0, 6)) !== "Y7HRS1") {
+      log("bad reply magic: " + Array.from(reply.slice(0, 6)).map(x => x.toString(16).padStart(2, "0")).join(" "));
+      return;
+    }
+    total = reply[6] | (reply[7] << 8);
+    const offset = reply[8] | (reply[9] << 8);
+    const len = reply[10];
+    chunks.push({ offset, data: reply.slice(11, 11 + len) });
+    const got = chunks.reduce((n, chunk) => n + chunk.data.length, 0);
+    if (got >= total) break;
+  }
+  const out = new Uint8Array(total);
+  for (const chunk of chunks) {
+    out.set(chunk.data, chunk.offset);
+  }
+  log(`${text}: ${dec.decode(out)}`);
+}
+
+document.querySelector("#connect").onclick = connect;
+document.querySelector("#status").onclick = () => command("status");
+document.querySelector("#bridge").onclick = () => command("bridge status");
+document.querySelector("#usb").onclick = () => command("usb status");
+document.querySelector("#settings").onclick = () => command("settings");
+for (const button of document.querySelectorAll("[data-command]")) {
+  button.onclick = async () => {
+    try {
+      await command(button.dataset.command);
+    } catch (error) {
+      log(`${button.dataset.command}: device re-enumerating (${error.message})`);
+    }
+  };
+}
+navigator.hid.addEventListener("disconnect", event => {
+  if (device === event.device) {
+    log("disconnected; reconnect after role re-enumeration");
+    device = undefined;
+  }
+});
+</script>

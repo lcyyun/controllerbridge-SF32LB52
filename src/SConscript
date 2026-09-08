@@ -1,0 +1,20 @@
+from building import *
+
+cwd = GetCurrentDir()
+src = Glob("*.c")
+defines = []
+if ARGUMENTS.get("usb_smoke", "0") in ("1", "64", "ns2"):
+    defines = ["SF32LB52_USB_ONLY_SMOKE", "SF32LB52_USB_SMOKE_MOUSE"]
+if ARGUMENTS.get("usb_smoke", "0") == "64":
+    defines.append("SF32LB52_USB_SMOKE_64")
+if ARGUMENTS.get("usb_smoke", "0") == "ns2":
+    defines.append("SF32LB52_USB_SMOKE_NS2")
+path = [
+    cwd,
+    os.path.join(cwd, "..", "include"),
+    os.path.join(cwd, "..", "boards", "SF32LB52_LCD_N16R8"),
+]
+
+group = DefineGroup("SF32LB52Port", src, CPPPATH=path, CPPDEFINES=defines, depend=[""])
+
+Return("group")

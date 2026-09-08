@@ -1,0 +1,15 @@
+#ifndef NS2PRO_BRIDGE_SF32LB52_BOARD_CONFIG_H
+#define NS2PRO_BRIDGE_SF32LB52_BOARD_CONFIG_H
+
+#define SF32LB52_BOARD_NAME "SF32LB52_LCD_N16R8"
+#define SF32LB52_DEFAULT_PROFILE "ns2"
+
+/*
+ * TODO(SiFli SDK): confirm these values against the SF32LB52 LCD N16R8 BSP.
+ * Keep them here so pinmux/clock/storage decisions are local to the board.
+ */
+#define SF32LB52_USB_HID_POLL_INTERVAL_MS 1U
+#define SF32LB52_NS2_REPORT_INTERVAL_MS 4U
+#define SF32LB52_BLE_TARGET_MTU 256U
+
+#endif /* NS2PRO_BRIDGE_SF32LB52_BOARD_CONFIG_H */

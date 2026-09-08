@@ -1,0 +1,33 @@
+import os
+
+from building import *
+
+Import("SIFLI_SDK")
+
+cwd = GetCurrentDir()
+src = Glob("*.c") + Glob("cherryusb_sifli/*.c")
+defines = ["SF32LB52_USB_USE_CHERRYUSB"]
+if ARGUMENTS.get("usb_smoke", "0") in ("1", "64", "ns2"):
+    defines.append("SF32LB52_USB_SMOKE_MOUSE")
+if ARGUMENTS.get("usb_smoke", "0") == "64":
+    defines.append("SF32LB52_USB_SMOKE_64")
+if ARGUMENTS.get("usb_smoke", "0") == "ns2":
+    defines.append("SF32LB52_USB_SMOKE_NS2")
+path = [
+    cwd,
+    os.path.join(cwd, "..", "include"),
+    os.path.join(SIFLI_SDK, "external", "cherryusb"),
+    os.path.join(SIFLI_SDK, "external", "cherryusb", "common"),
+    os.path.join(SIFLI_SDK, "external", "cherryusb", "core"),
+    os.path.join(SIFLI_SDK, "external", "cherryusb", "port", "musb"),
+]
+
+group = DefineGroup(
+    "USBDevice",
+    src,
+    CPPPATH=path,
+    CPPDEFINES=defines,
+    depend=[""],
+)
+
+Return("group")

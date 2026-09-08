@@ -1,0 +1,22 @@
+#ifndef NS2PRO_BRIDGE_SF32LB52_APP_H
+#define NS2PRO_BRIDGE_SF32LB52_APP_H
+
+#include <stdint.h>
+
+typedef enum {
+    SF32LB52_APP_INPUT_ACTION_NONE = 0,
+    SF32LB52_APP_INPUT_ACTION_PAIR_DS5,
+    SF32LB52_APP_INPUT_ACTION_CONNECT_DS5,
+    SF32LB52_APP_INPUT_ACTION_DISCONNECT_DS5,
+    SF32LB52_APP_INPUT_ACTION_FORGET_DS5,
+    SF32LB52_APP_INPUT_ACTION_PAIR_NS2,
+    SF32LB52_APP_INPUT_ACTION_CONNECT_NS2,
+    SF32LB52_APP_INPUT_ACTION_DISCONNECT_NS2,
+    SF32LB52_APP_INPUT_ACTION_FORGET_NS2,
+} sf32lb52_app_input_action_t;
+
+int sf32lb52_app_main(void);
+int sf32lb52_app_test_rumble(uint16_t left_motor, uint16_t right_motor);
+int sf32lb52_app_request_input_action(sf32lb52_app_input_action_t action);
+
+#endif /* NS2PRO_BRIDGE_SF32LB52_APP_H */

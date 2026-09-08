@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "sdk": {
+    "repository": "https://github.com/OpenSiFli/SiFli-SDK.git",
+    "commit": "cbe6cd61e6ca310bd045cfab0368ee5759fe1f61",
+    "version": "v2.5.0",
+    "submodules": [
+      {
+        "path": "middleware/bluetooth",
+        "commit": "7fae17940488400448e5c5d65cf6be185a243651"
+      },
+      {
+        "path": "tools/SiliconSchema",
+        "commit": "304658c6edd5497211b7d152932327ce6e4450ff"
+      }
+    ]
+  },
+  "tools": {
+    "armGcc": "14.2.1",
+    "python": "3.13",
+    "scons": "4.10.1",
+    "sdkEnvironmentCompatibilitySha256": "cc8467a819e7e5fa17a4a6cc94f9b1eaac9f0834dc30b2e0843648d6681e8f67",
+    "sdkToolsJsonSha256": "f2a8e4c6364a0df210ed15ec2842c0b384ca6c1097d00413e049d19555310a5f",
+    "sftool": {
+      "version": "0.1.16",
+      "windowsExeSha256": "05e0d7d7e1dd1df82d064c0524191bb567c4c84a2f821635dfa341fb7c5665ce"
+    }
+  },
+  "licenses": [
+    {
+      "component": "CherryUSB 1.6.0",
+      "sdkPath": "external/cherryusb/LICENSE",
+      "copyPath": "LICENSES/CherryUSB-Apache-2.0.txt",
+      "normalization": "utf8-no-bom-crlf-or-cr-to-lf",
+      "canonicalSha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "component": "Opus 1.4",
+      "sdkPath": "external/opus-1.4/COPYING",
+      "copyPath": "LICENSES/Opus-1.4-COPYING.txt",
+      "normalization": "utf8-no-bom-crlf-or-cr-to-lf",
+      "canonicalSha256": "8338ce8d922bb4416ce3dd1e5680173332435e3f0755007ac7801ccd674fe682"
+    }
+  ]
+}

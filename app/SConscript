@@ -1,0 +1,13 @@
+from building import *
+
+cwd = GetCurrentDir()
+src = Glob("*.c")
+path = [
+    cwd,
+    os.path.join(cwd, "..", "include"),
+    os.path.join(cwd, "..", "boards", "SF32LB52_LCD_N16R8"),
+]
+
+group = DefineGroup("Applications", src, CPPPATH=path, depend=[""])
+
+Return("group")
