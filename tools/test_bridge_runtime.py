@@ -66,7 +66,7 @@ def main():
         subprocess.check_call(nvds_command, env=env)
         print("+", nvds_executable)
         subprocess.check_call([str(nvds_executable)], env=env)
-    print("OK bridge runtime source-profile/role-matrix/persistence tests "
+    print("OK bridge runtime four-route/actual-USB-role/persistence tests "
           "(host and NVDS stub)")
     return 0
 

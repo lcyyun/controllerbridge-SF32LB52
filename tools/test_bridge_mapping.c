@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 #define BUTTON(button) SF32LB52_BRIDGE_BUTTON_MASK(button)
 
@@ -352,6 +353,114 @@ static void test_wire_validation_is_atomic(void)
         good, sizeof(good), NULL));
 }
 
+static void test_four_route_wire_and_commands(void)
+{
+    const sf32lb52_bridge_mapping_profile_t sources[] = {
+        SF32LB52_BRIDGE_MAPPING_PROFILE_DS5,
+        SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO,
+    };
+    const sf32lb52_bridge_mapping_output_t outputs[] = {
+        SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5,
+        SF32LB52_BRIDGE_MAPPING_OUTPUT_NS2PRO,
+    };
+    const char *verbs[] = {"get", "reset", "save", "set"};
+    const char *bad_commands[] = {
+        "mapping get ds5 xbox", "mapping get ds5 ns2pro extra",
+        "mapping get none ds5", "mapping set ds5 ns2pro south",
+        "mapping set ds5 ns2pro none south", "mapping set ds5 ns2pro south BAD",
+        "mapping set ds5 ns2pro south east extra",
+        "mapping reset ns2pro xbox", "mapping save ds5 ns2pro extra",
+        "mapping set ds5 ds5 this_token_is_far_too_long_for_the_parser east",
+    };
+    sf32lb52_bridge_mapping_routes_t routes, decoded, sentinel;
+    sf32lb52_bridge_mapping_command_t command;
+    uint8_t wire[SF32LB52_BRIDGE_MAPPING_ROUTES_WIRE_SIZE + 1U];
+    uint8_t good[SF32LB52_BRIDGE_MAPPING_ROUTES_WIRE_SIZE];
+    char text[128], json[2049];
+    size_t s, o, v, i;
+
+    sf32lb52_bridge_mapping_routes_defaults(&routes);
+    assert(sf32lb52_bridge_mapping_routes_is_identity(&routes));
+    for (s = 0U; s < 2U; ++s) {
+        for (o = 0U; o < 2U; ++o) {
+            sf32lb52_bridge_mapping_config_t *config =
+                sf32lb52_bridge_mapping_route(&routes, sources[s], outputs[o]);
+            assert(config != NULL);
+            config->source_for_target[0] = (uint8_t)(s * 2U + o + 1U);
+            for (v = 0U; v < 4U; ++v) {
+                snprintf(text, sizeof(text), "mapping %s %s %s%s", verbs[v],
+                         sf32lb52_bridge_mapping_profile_name(sources[s]),
+                         sf32lb52_bridge_mapping_output_name(outputs[o]),
+                         v == 3U ? " south none" : "");
+                assert(sf32lb52_bridge_mapping_parse_command(text, &command) == 1);
+                assert(command.profile == sources[s] && command.output == outputs[o]);
+                if (v == 3U) {
+                    assert(command.source == SF32LB52_BRIDGE_MAPPING_NONE);
+                }
+            }
+            assert(sf32lb52_bridge_mapping_format_route_json(
+                sources[s], outputs[o], config, true, json, sizeof(json)) > 0);
+            snprintf(text, sizeof(text), "\"profile\":\"%s\",\"output\":\"%s\"",
+                     sf32lb52_bridge_mapping_profile_name(sources[s]),
+                     sf32lb52_bridge_mapping_output_name(outputs[o]));
+            assert(strstr(json, text) != NULL);
+            assert(strstr(json, "\"mapping_schema\":3") != NULL);
+            assert(sf32lb52_bridge_mapping_format_route_json(
+                sources[s], outputs[o], config, true, text, 8U) == -1);
+        }
+    }
+    assert(!sf32lb52_bridge_mapping_routes_is_identity(&routes));
+    assert(sf32lb52_bridge_mapping_routes_serialize(&routes, good, sizeof(good)) ==
+           sizeof(good));
+    assert(good[4] == 3U && good[5] == 112U && good[6] == 25U && good[7] == 4U);
+    assert(good[8] == 1U && good[33] == 2U && good[58] == 3U && good[83] == 4U);
+    assert(sf32lb52_bridge_mapping_routes_deserialize(good, sizeof(good), &decoded));
+    assert(memcmp(&routes, &decoded, sizeof(routes)) == 0);
+    memset(&sentinel, 0xa5, sizeof(sentinel));
+    memset(wire, 0, sizeof(wire));
+    for (i = 0U; i <= sizeof(good); ++i) {
+        memcpy(wire, good, sizeof(good));
+        wire[i] ^= 1U;
+        decoded = sentinel;
+        assert(!sf32lb52_bridge_mapping_routes_deserialize(
+            wire, i == sizeof(good) ? sizeof(wire) : sizeof(good), &decoded));
+        assert(memcmp(&sentinel, &decoded, sizeof(decoded)) == 0);
+    }
+    for (i = 0U; i < sizeof(good); ++i) {
+        assert(!sf32lb52_bridge_mapping_routes_deserialize(good, i, &decoded));
+        assert(sf32lb52_bridge_mapping_routes_serialize(&routes, wire, i) == 0U);
+    }
+    for (i = 0U; i < 4U; ++i) {
+        memcpy(wire, good, sizeof(good));
+        wire[8U + i * 25U] = SF32LB52_BRIDGE_BUTTON_COUNT;
+        repair_wire_crc(wire, sizeof(good));
+        decoded = sentinel;
+        assert(!sf32lb52_bridge_mapping_routes_deserialize(wire, sizeof(good), &decoded));
+        assert(memcmp(&sentinel, &decoded, sizeof(decoded)) == 0);
+        decoded = routes;
+        sf32lb52_bridge_mapping_route(&decoded, sources[i / 2U], outputs[i % 2U])
+            ->source_for_target[0] = SF32LB52_BRIDGE_BUTTON_COUNT;
+        assert(sf32lb52_bridge_mapping_routes_serialize(&decoded, wire, sizeof(wire)) == 0U);
+    }
+    assert(sf32lb52_bridge_mapping_route(&routes, sources[0],
+        SF32LB52_BRIDGE_MAPPING_OUTPUT_UNSPECIFIED) == NULL);
+    assert(sf32lb52_bridge_mapping_route(&routes,
+        SF32LB52_BRIDGE_MAPPING_PROFILE_UNSPECIFIED, outputs[0]) == NULL);
+    assert(!sf32lb52_bridge_mapping_routes_deserialize(NULL, sizeof(good), &decoded));
+    assert(!sf32lb52_bridge_mapping_routes_deserialize(good, sizeof(good), NULL));
+    for (i = 0U; i < sizeof(bad_commands) / sizeof(bad_commands[0]); ++i) {
+        assert(sf32lb52_bridge_mapping_parse_command(bad_commands[i], &command) == -1);
+    }
+    assert(sf32lb52_bridge_mapping_parse_command("mapping get edge dse", &command) == 1);
+    assert(command.profile == sources[0] && command.output == outputs[0]);
+    assert(sf32lb52_bridge_mapping_parse_command("mapping get ds5", &command) == 1);
+    assert(command.output == SF32LB52_BRIDGE_MAPPING_OUTPUT_UNSPECIFIED);
+    assert(sf32lb52_bridge_mapping_output_for_role(SF32LB52_BRIDGE_ROLE_DUALSENSE_EDGE) ==
+           outputs[0]);
+    assert(sf32lb52_bridge_mapping_output_for_role(SF32LB52_BRIDGE_ROLE_XBOX_360) ==
+           outputs[0]);
+}
+
 int main(void)
 {
     test_identity_and_remap();
@@ -359,5 +468,6 @@ int main(void)
     test_wire_and_commands();
     test_native_report_patching();
     test_wire_validation_is_atomic();
+    test_four_route_wire_and_commands();
     return 0;
 }

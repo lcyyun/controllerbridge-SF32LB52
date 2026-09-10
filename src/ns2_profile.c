@@ -1053,24 +1053,22 @@ static void queue_bridge_operation(const char *operation, int result)
 }
 
 static void queue_mapping_json(
-    sf32lb52_bridge_mapping_profile_t profile)
+    sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_mapping_output_t output)
 {
     sf32lb52_bridge_mapping_config_t mapping;
-    sf32lb52_bridge_runtime_status_t status;
+    bool dirty;
     char json[SF32LB52_NS2_FEATURE_REPLY_CAPACITY + 1U];
 
-    memset(&status, 0, sizeof(status));
-    if (profile == SF32LB52_BRIDGE_MAPPING_PROFILE_UNSPECIFIED) {
-        profile = sf32lb52_bridge_runtime_active_mapping_profile();
-    }
-    if (!sf32lb52_bridge_runtime_get_profile_button_mapping(
-            profile, &mapping)) {
+    if (!sf32lb52_bridge_runtime_get_route_button_mapping(
+            profile, output, &mapping) ||
+        !sf32lb52_bridge_runtime_get_route_mapping_dirty(
+            profile, output, &dirty)) {
         queue_json("{\"ok\":false,\"error\":\"mapping_read_failed\"}");
         return;
     }
-    sf32lb52_bridge_runtime_get_status(&status);
-    if (sf32lb52_bridge_mapping_format_profile_json(
-            profile, &mapping, status.mapping_dirty != 0U,
+    if (sf32lb52_bridge_mapping_format_route_json(
+            profile, output, &mapping, dirty,
             json, sizeof(json)) < 0) {
         queue_json("{\"ok\":false,\"error\":\"mapping_reply_failed\"}");
         return;
@@ -1083,39 +1081,42 @@ static int handle_mapping_command(const char *text)
     sf32lb52_bridge_mapping_command_t command;
     int parsed = sf32lb52_bridge_mapping_parse_command(text, &command);
     bool ok = false;
+    bool explicit_output;
 
     if (parsed == 0) {
         return 0;
     }
     if (parsed < 0) {
-        queue_json("{\"ok\":false,\"error\":\"usage: mapping get|set [ds5|ns2pro] target source|none|reset|save\"}");
+        queue_json("{\"ok\":false,\"error\":\"usage: mapping get|reset|save [source [output]]; mapping set [source [output]] target button|none; source/output: ds5|ns2pro\"}");
         return 1;
+    }
+    explicit_output =
+        command.output != SF32LB52_BRIDGE_MAPPING_OUTPUT_UNSPECIFIED;
+    if (command.profile == SF32LB52_BRIDGE_MAPPING_PROFILE_UNSPECIFIED) {
+        command.profile = sf32lb52_bridge_runtime_active_mapping_profile();
+    }
+    if (!explicit_output) {
+        command.output = sf32lb52_bridge_runtime_active_mapping_output();
     }
 
     switch (command.kind) {
     case SF32LB52_BRIDGE_MAPPING_COMMAND_GET:
-        queue_mapping_json(command.profile);
+        queue_mapping_json(command.profile, command.output);
         return 1;
     case SF32LB52_BRIDGE_MAPPING_COMMAND_SET:
-        if (command.profile == SF32LB52_BRIDGE_MAPPING_PROFILE_UNSPECIFIED) {
-            command.profile = sf32lb52_bridge_runtime_active_mapping_profile();
-        }
-        ok = sf32lb52_bridge_runtime_set_profile_button_mapping(
-            command.profile, command.target, command.source);
+        ok = sf32lb52_bridge_runtime_set_route_button_mapping(
+            command.profile, command.output, command.target, command.source);
         break;
     case SF32LB52_BRIDGE_MAPPING_COMMAND_RESET:
-        if (command.profile == SF32LB52_BRIDGE_MAPPING_PROFILE_UNSPECIFIED) {
-            command.profile = sf32lb52_bridge_runtime_active_mapping_profile();
-        }
-        ok = sf32lb52_bridge_runtime_reset_profile_button_mapping(
-            command.profile);
+        ok = sf32lb52_bridge_runtime_reset_route_button_mapping(
+            command.profile, command.output);
         break;
     case SF32LB52_BRIDGE_MAPPING_COMMAND_SAVE:
-        if (command.profile == SF32LB52_BRIDGE_MAPPING_PROFILE_UNSPECIFIED) {
-            command.profile = sf32lb52_bridge_runtime_active_mapping_profile();
-        }
-        ok = sf32lb52_bridge_runtime_save_profile_button_mapping(
-            command.profile);
+        ok = explicit_output
+            ? sf32lb52_bridge_runtime_save_route_button_mapping(
+                command.profile, command.output)
+            : sf32lb52_bridge_runtime_save_profile_button_mapping(
+                command.profile);
         break;
     case SF32LB52_BRIDGE_MAPPING_COMMAND_NONE:
     default:
@@ -1124,7 +1125,7 @@ static int handle_mapping_command(const char *text)
     if (!ok) {
         queue_json("{\"ok\":false,\"error\":\"mapping_operation_failed\"}");
     } else {
-        queue_mapping_json(command.profile);
+        queue_mapping_json(command.profile, command.output);
     }
     return 1;
 }

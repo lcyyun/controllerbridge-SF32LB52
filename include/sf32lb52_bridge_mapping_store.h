@@ -21,11 +21,11 @@ typedef struct {
 } sf32lb52_bridge_mapping_store_status_t;
 
 bool sf32lb52_bridge_mapping_store_load(
-    sf32lb52_bridge_mapping_profiles_t *profiles);
+    sf32lb52_bridge_mapping_routes_t *routes);
 bool sf32lb52_bridge_mapping_store_save(
-    const sf32lb52_bridge_mapping_profiles_t *profiles);
+    const sf32lb52_bridge_mapping_routes_t *routes);
 bool sf32lb52_bridge_mapping_store_reset(
-    sf32lb52_bridge_mapping_profiles_t *profiles);
+    sf32lb52_bridge_mapping_routes_t *routes);
 void sf32lb52_bridge_mapping_store_get_status(
     sf32lb52_bridge_mapping_store_status_t *status);
 

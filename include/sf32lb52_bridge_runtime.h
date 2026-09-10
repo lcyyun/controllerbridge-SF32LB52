@@ -95,13 +95,36 @@ bool sf32lb52_bridge_runtime_get_input_state(
     sf32lb52_bridge_input_state_t *state);
 
 sf32lb52_bridge_mapping_profile_t sf32lb52_bridge_runtime_active_mapping_profile(void);
+sf32lb52_bridge_mapping_output_t sf32lb52_bridge_runtime_active_mapping_output(void);
+bool sf32lb52_bridge_runtime_set_route_button_mapping(
+    sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_mapping_output_t output,
+    sf32lb52_bridge_button_t target, uint8_t source);
+bool sf32lb52_bridge_runtime_reset_route_button_mapping(
+    sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_mapping_output_t output);
+/* Explicit save persists only this route, retaining other saved routes and
+ * leaving other unsaved edits in RAM. mapping_dirty remains aggregate. */
+bool sf32lb52_bridge_runtime_save_route_button_mapping(
+    sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_mapping_output_t output);
+bool sf32lb52_bridge_runtime_get_route_button_mapping(
+    sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_mapping_output_t output,
+    sf32lb52_bridge_mapping_config_t *config);
+bool sf32lb52_bridge_runtime_get_route_mapping_dirty(
+    sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_mapping_output_t output,
+    bool *dirty);
+/* Legacy profile APIs resolve output from the actual USB role, not a pending
+ * runtime role request. */
 bool sf32lb52_bridge_runtime_set_profile_button_mapping(
     sf32lb52_bridge_mapping_profile_t profile,
     sf32lb52_bridge_button_t target,
     uint8_t source);
 bool sf32lb52_bridge_runtime_reset_profile_button_mapping(
     sf32lb52_bridge_mapping_profile_t profile);
-/* Either profile saves the complete v2 record; mapping_dirty is aggregate. */
+/* Legacy save retains the existing aggregate-save policy, now in v3 format. */
 bool sf32lb52_bridge_runtime_save_profile_button_mapping(
     sf32lb52_bridge_mapping_profile_t profile);
 bool sf32lb52_bridge_runtime_get_profile_button_mapping(

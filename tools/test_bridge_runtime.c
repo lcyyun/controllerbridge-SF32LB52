@@ -1,4 +1,5 @@
 #include "sf32lb52_bridge_runtime.h"
+#include "sf32lb52_usb_device.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -7,6 +8,21 @@
 #if defined(TEST_MAPPING_NVDS)
 #include "bf0_sibles_nvds.h"
 #endif
+
+static int actual_usb_override = -1;
+
+Sf32lb52UsbRole sf32lb52_usb_get_role(void)
+{
+    if (actual_usb_override >= 0) {
+        return (Sf32lb52UsbRole)actual_usb_override;
+    }
+    switch (sf32lb52_bridge_runtime_role()) {
+    case SF32LB52_BRIDGE_ROLE_NS2PRO: return Sf32lb52UsbRoleNintendo;
+    case SF32LB52_BRIDGE_ROLE_DUALSENSE: return Sf32lb52UsbRoleDualSense;
+    case SF32LB52_BRIDGE_ROLE_DUALSENSE_EDGE: return Sf32lb52UsbRoleDualSenseEdge;
+    default: return Sf32lb52UsbRoleXbox360;
+    }
+}
 
 typedef struct {
     int reject_role;
@@ -55,12 +71,17 @@ static sf32lb52_bridge_input_state_t make_input(
 
 static void reset_to_defaults(void)
 {
+    actual_usb_override = -1;
     sf32lb52_bridge_runtime_init();
     assert(sf32lb52_bridge_runtime_reset_settings());
     assert(sf32lb52_bridge_runtime_reset_profile_button_mapping(
         SF32LB52_BRIDGE_MAPPING_PROFILE_DS5));
     assert(sf32lb52_bridge_runtime_reset_profile_button_mapping(
         SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO));
+    assert(sf32lb52_bridge_runtime_reset_route_button_mapping(
+        SF32LB52_BRIDGE_MAPPING_PROFILE_DS5, SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5));
+    assert(sf32lb52_bridge_runtime_reset_route_button_mapping(
+        SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO, SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5));
     assert(sf32lb52_bridge_runtime_save_profile_button_mapping(
         SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO));
     sf32lb52_bridge_runtime_init();
@@ -262,6 +283,7 @@ static void test_mapping_runtime_persistence_and_native_paths(void)
 
     assert(sf32lb52_bridge_runtime_save_button_mapping());
     sf32lb52_bridge_runtime_init();
+    assert(sf32lb52_bridge_runtime_set_role(SF32LB52_BRIDGE_ROLE_DUALSENSE, false));
     assert(sf32lb52_bridge_runtime_get_button_mapping(&mapping));
     assert(mapping.source_for_target[SF32LB52_BRIDGE_BUTTON_SOUTH] ==
            SF32LB52_BRIDGE_BUTTON_EAST);
@@ -307,13 +329,7 @@ static void test_mapping_runtime_persistence_and_native_paths(void)
     assert(report[6] == 0x80U && report[7] == 0x30U && report[8] == 0xfcU);
     assert(report[20] == 0x5aU);
 
-    assert(sf32lb52_bridge_runtime_reset_profile_button_mapping(
-        SF32LB52_BRIDGE_MAPPING_PROFILE_DS5));
-    assert(sf32lb52_bridge_runtime_reset_profile_button_mapping(
-        SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO));
-    assert(sf32lb52_bridge_runtime_save_profile_button_mapping(
-        SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO));
-    sf32lb52_bridge_runtime_init();
+    reset_to_defaults();
     assert(sf32lb52_bridge_runtime_mapping_is_identity());
     assert(sf32lb52_bridge_runtime_get_profile_button_mapping(
         SF32LB52_BRIDGE_MAPPING_PROFILE_DS5, &mapping));
@@ -344,18 +360,27 @@ static void assert_profiles_equal(
 
 static void configure_distinct_profiles(void)
 {
-    assert(sf32lb52_bridge_runtime_set_profile_button_mapping(
-        SF32LB52_BRIDGE_MAPPING_PROFILE_DS5,
-        SF32LB52_BRIDGE_BUTTON_SOUTH, SF32LB52_BRIDGE_BUTTON_EAST));
-    assert(sf32lb52_bridge_runtime_set_profile_button_mapping(
-        SF32LB52_BRIDGE_MAPPING_PROFILE_DS5,
-        SF32LB52_BRIDGE_BUTTON_EAST, SF32LB52_BRIDGE_MAPPING_NONE));
-    assert(sf32lb52_bridge_runtime_set_profile_button_mapping(
-        SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO,
-        SF32LB52_BRIDGE_BUTTON_NORTH, SF32LB52_BRIDGE_BUTTON_EAST));
-    assert(sf32lb52_bridge_runtime_set_profile_button_mapping(
-        SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO,
-        SF32LB52_BRIDGE_BUTTON_EAST, SF32LB52_BRIDGE_MAPPING_NONE));
+    /* Baseline migrated behavior: source maps equal across USB outputs. */
+    sf32lb52_bridge_role_t old_role = sf32lb52_bridge_runtime_role();
+    int output;
+
+    for (output = 0; output < 2; ++output) {
+        assert(sf32lb52_bridge_runtime_set_role(output == 0
+            ? SF32LB52_BRIDGE_ROLE_DUALSENSE : SF32LB52_BRIDGE_ROLE_NS2PRO, false));
+        assert(sf32lb52_bridge_runtime_set_profile_button_mapping(
+            SF32LB52_BRIDGE_MAPPING_PROFILE_DS5,
+            SF32LB52_BRIDGE_BUTTON_SOUTH, SF32LB52_BRIDGE_BUTTON_EAST));
+        assert(sf32lb52_bridge_runtime_set_profile_button_mapping(
+            SF32LB52_BRIDGE_MAPPING_PROFILE_DS5,
+            SF32LB52_BRIDGE_BUTTON_EAST, SF32LB52_BRIDGE_MAPPING_NONE));
+        assert(sf32lb52_bridge_runtime_set_profile_button_mapping(
+            SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO,
+            SF32LB52_BRIDGE_BUTTON_NORTH, SF32LB52_BRIDGE_BUTTON_EAST));
+        assert(sf32lb52_bridge_runtime_set_profile_button_mapping(
+            SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO,
+            SF32LB52_BRIDGE_BUTTON_EAST, SF32LB52_BRIDGE_MAPPING_NONE));
+    }
+    assert(sf32lb52_bridge_runtime_set_role(old_role, false));
 }
 
 static void mapping_reboot(void)
@@ -464,8 +489,8 @@ static void test_mapping_source_role_matrix(void)
         /* The delayed USB path synchronizes roles through a separate API. */
         for (role_index = 0U; role_index < 4U; ++role_index) {
             assert(sf32lb52_bridge_runtime_sync_role(roles[role_index], false));
-            assert(sf32lb52_bridge_runtime_active_mapping_profile() == profile);
             assert(sf32lb52_bridge_runtime_accept_input(&input, 200U));
+            assert(sf32lb52_bridge_runtime_active_mapping_profile() == profile);
             assert(sf32lb52_bridge_runtime_make_input_report(
                 201U, report, sizeof(report)) ==
                 sf32lb52_bridge_input_report_size(roles[role_index]));
@@ -495,7 +520,7 @@ static void test_mapping_reboot_and_independent_reset(void)
         reset_to_defaults();
         configure_distinct_profiles();
         saved = get_profiles();
-        /* Saving either named profile checkpoints the complete v2 record. */
+        /* Legacy save still checkpoints all routes, using the v3 record. */
         assert(sf32lb52_bridge_runtime_save_profile_button_mapping(profiles[i]));
         assert(sf32lb52_bridge_runtime_set_role(
             SF32LB52_BRIDGE_ROLE_DUALSENSE_EDGE, true));
@@ -539,7 +564,7 @@ static void test_mapping_legacy_active_commands(void)
     configure_distinct_profiles();
     before = get_profiles();
     assert(sf32lb52_bridge_runtime_set_role(
-        SF32LB52_BRIDGE_ROLE_DUALSENSE, false));
+        SF32LB52_BRIDGE_ROLE_DUALSENSE, true));
     assert(sf32lb52_bridge_runtime_accept_input(&ns2, 100U));
     assert(sf32lb52_bridge_runtime_active_mapping_profile() ==
            SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO);
@@ -603,6 +628,262 @@ static void test_mapping_runtime_nvds_failure(void)
 }
 #endif
 
+static sf32lb52_bridge_mapping_routes_t get_routes(void)
+{
+    sf32lb52_bridge_mapping_routes_t routes;
+    int s, o;
+
+    for (s = 1; s <= 2; ++s) {
+        for (o = 1; o <= 2; ++o) {
+            assert(sf32lb52_bridge_runtime_get_route_button_mapping(
+                (sf32lb52_bridge_mapping_profile_t)s,
+                (sf32lb52_bridge_mapping_output_t)o,
+                sf32lb52_bridge_mapping_route(&routes,
+                    (sf32lb52_bridge_mapping_profile_t)s,
+                    (sf32lb52_bridge_mapping_output_t)o)));
+        }
+    }
+    return routes;
+}
+
+static void assert_routes_equal(const sf32lb52_bridge_mapping_routes_t *expected)
+{
+    sf32lb52_bridge_mapping_routes_t actual = get_routes();
+    assert(memcmp(&actual, expected, sizeof(actual)) == 0);
+}
+
+static void configure_four_routes(void)
+{
+    int s, o, button;
+
+    for (s = 1; s <= 2; ++s) {
+        for (o = 1; o <= 2; ++o) {
+            /* A single east press becomes a different face button per route. */
+            int target = (s - 1) * 2 + o - 1;
+            for (button = 0; button < 4; ++button) {
+                assert(sf32lb52_bridge_runtime_set_route_button_mapping(
+                    (sf32lb52_bridge_mapping_profile_t)s,
+                    (sf32lb52_bridge_mapping_output_t)o,
+                    (sf32lb52_bridge_button_t)button,
+                    button == target ? SF32LB52_BRIDGE_BUTTON_EAST :
+                                       SF32LB52_BRIDGE_MAPPING_NONE));
+            }
+        }
+    }
+}
+
+static void test_four_route_runtime_isolation(void)
+{
+    const Sf32lb52UsbRole roles[] = {
+        Sf32lb52UsbRoleDualSense, Sf32lb52UsbRoleNintendo,
+        Sf32lb52UsbRoleDualSenseEdge, Sf32lb52UsbRoleXbox360,
+    };
+    const uint8_t ds5_faces[] = {0x20U, 0x40U, 0x10U, 0x80U};
+    const uint8_t ns2_faces[] = {0x04U, 0x08U, 0x01U, 0x02U};
+    const uint8_t xbox_faces[] = {0x10U, 0x20U, 0x40U, 0x80U};
+    sf32lb52_bridge_mapping_routes_t expected;
+    sf32lb52_bridge_mapping_config_t legacy;
+    int s;
+    size_t r;
+    uint8_t report[64], before[64];
+
+    reset_to_defaults();
+    configure_four_routes();
+    expected = get_routes();
+    for (s = 1; s <= 2; ++s) {
+        sf32lb52_bridge_input_state_t input = make_input(
+            s == 1 ? SF32LB52_BRIDGE_INPUT_SOURCE_DUALSENSE_BT :
+                     SF32LB52_BRIDGE_INPUT_SOURCE_NS2PRO_BLE,
+            SF32LB52_BRIDGE_BUTTON_EAST);
+        sf32lb52_bridge_runtime_release_input(SF32LB52_BRIDGE_INPUT_SOURCE_NONE, 99U);
+        assert(sf32lb52_bridge_runtime_accept_input(&input, 100U));
+        for (r = 0U; r < 4U; ++r) {
+            bool ns2_output = roles[r] == Sf32lb52UsbRoleNintendo;
+            int target = (s - 1) * 2 + (ns2_output ? 1 : 0);
+            sf32lb52_bridge_role_t role = ns2_output
+                ? SF32LB52_BRIDGE_ROLE_NS2PRO
+                : roles[r] == Sf32lb52UsbRoleDualSenseEdge
+                    ? SF32LB52_BRIDGE_ROLE_DUALSENSE_EDGE
+                    : roles[r] == Sf32lb52UsbRoleXbox360
+                        ? SF32LB52_BRIDGE_ROLE_XBOX_360 : SF32LB52_BRIDGE_ROLE_DUALSENSE;
+            size_t len;
+
+            actual_usb_override = roles[r];
+            /* Legacy mapping selects actual USB; report caches must wait for
+             * re-enumeration before publishing the new persona's reports. */
+            assert(sf32lb52_bridge_runtime_set_role(ns2_output
+                ? SF32LB52_BRIDGE_ROLE_DUALSENSE : SF32LB52_BRIDGE_ROLE_NS2PRO, false));
+            assert(sf32lb52_bridge_runtime_active_mapping_output() == (ns2_output
+                ? SF32LB52_BRIDGE_MAPPING_OUTPUT_NS2PRO : SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5));
+            assert(sf32lb52_bridge_runtime_get_profile_button_mapping(
+                (sf32lb52_bridge_mapping_profile_t)s, &legacy));
+            assert(memcmp(&legacy, sf32lb52_bridge_mapping_route(&expected,
+                (sf32lb52_bridge_mapping_profile_t)s,
+                sf32lb52_bridge_runtime_active_mapping_output()), sizeof(legacy)) == 0);
+            memset(report, 0xa5, sizeof(report));
+            memcpy(before, report, sizeof(report));
+            assert(sf32lb52_bridge_runtime_make_input_report(
+                101U, report, sizeof(report)) == 0U);
+            assert(!sf32lb52_bridge_runtime_patch_native_input_report(
+                101U, report, sizeof(report)));
+            assert(memcmp(before, report, sizeof(report)) == 0);
+            assert(sf32lb52_bridge_runtime_sync_role(role, false));
+            assert(sf32lb52_bridge_runtime_accept_input(&input, 100U));
+            len = sf32lb52_bridge_runtime_make_input_report(101U, report, sizeof(report));
+            if (roles[r] == Sf32lb52UsbRoleXbox360) {
+                assert(len == 20U && (report[3] & 0xf0U) == xbox_faces[target]);
+            } else if (ns2_output) {
+                assert(len == 64U && (report[5] & 0x0fU) == ns2_faces[target]);
+            } else {
+                assert(len == 64U && (report[8] & 0xf0U) == ds5_faces[target]);
+            }
+            if (roles[r] != Sf32lb52UsbRoleXbox360) {
+                size_t byte;
+                memset(report, 0xa5, sizeof(report));
+                report[0] = ns2_output ? 5U : 1U;
+                memcpy(before, report, sizeof(before));
+                assert(sf32lb52_bridge_runtime_patch_native_input_report(
+                    101U, report, sizeof(report)));
+                assert(ns2_output ? (report[5] & 0x0fU) == ns2_faces[target] :
+                    (report[8] & 0xf0U) == ds5_faces[target]);
+                for (byte = 0U; byte < sizeof(report); ++byte) {
+                    bool patched = ns2_output ? (byte >= 5U && byte <= 8U) :
+                        (byte == 5U || byte == 6U || (byte >= 8U && byte <= 10U));
+                    if (!patched) {
+                        assert(report[byte] == before[byte]);
+                    }
+                }
+            }
+            assert_routes_equal(&expected);
+        }
+    }
+    actual_usb_override = -1;
+}
+
+static void test_four_route_save_reset_isolation(void)
+{
+    sf32lb52_bridge_mapping_routes_t edited, expected, saved, actual;
+    sf32lb52_bridge_runtime_status_t status;
+    int s, o;
+
+    for (s = 1; s <= 2; ++s) {
+        for (o = 1; o <= 2; ++o) {
+            sf32lb52_bridge_mapping_profile_t source = (sf32lb52_bridge_mapping_profile_t)s;
+            sf32lb52_bridge_mapping_output_t output = (sf32lb52_bridge_mapping_output_t)o;
+            reset_to_defaults();
+            configure_four_routes();
+            edited = get_routes();
+            sf32lb52_bridge_mapping_routes_defaults(&expected);
+            *sf32lb52_bridge_mapping_route(&expected, source, output) =
+                *sf32lb52_bridge_mapping_route(&edited, source, output);
+            assert(sf32lb52_bridge_runtime_save_route_button_mapping(source, output));
+            assert_routes_equal(&edited); /* Other unsaved routes remain live. */
+            sf32lb52_bridge_runtime_get_status(&status);
+            assert(status.mapping_dirty == 1U && status.mapping_last_persist_ok == 1U);
+            mapping_reboot();
+            assert_routes_equal(&expected); /* Only the chosen route was saved. */
+
+            configure_four_routes();
+            assert(sf32lb52_bridge_runtime_save_button_mapping());
+            saved = get_routes();
+            assert(sf32lb52_bridge_runtime_reset_route_button_mapping(source, output));
+            expected = saved;
+            sf32lb52_bridge_mapping_defaults(
+                sf32lb52_bridge_mapping_route(&expected, source, output));
+            assert_routes_equal(&expected);
+            mapping_reboot(); /* Unsaved reset cannot alter flash. */
+            assert_routes_equal(&saved);
+            assert(sf32lb52_bridge_runtime_reset_route_button_mapping(source, output));
+#if defined(TEST_MAPPING_NVDS)
+            fake_nvds_fail_writes(true);
+            assert(!sf32lb52_bridge_runtime_save_route_button_mapping(source, output));
+            sf32lb52_bridge_runtime_get_status(&status);
+            assert(status.mapping_dirty == 1U && status.mapping_last_persist_ok == 0U);
+            mapping_reboot();
+            assert_routes_equal(&saved);
+            assert(sf32lb52_bridge_runtime_reset_route_button_mapping(source, output));
+#endif
+            assert(sf32lb52_bridge_runtime_save_route_button_mapping(source, output));
+            mapping_reboot();
+            assert_routes_equal(&expected);
+            sf32lb52_bridge_runtime_get_status(&status);
+            assert(status.mapping_dirty == 0U && status.mapping_last_persist_ok == 1U);
+            actual = get_routes();
+            assert(!sf32lb52_bridge_runtime_set_route_button_mapping(source,
+                SF32LB52_BRIDGE_MAPPING_OUTPUT_UNSPECIFIED,
+                SF32LB52_BRIDGE_BUTTON_SOUTH, 0U));
+            assert(!sf32lb52_bridge_runtime_save_route_button_mapping(source,
+                (sf32lb52_bridge_mapping_output_t)99));
+            assert_routes_equal(&actual);
+        }
+    }
+}
+
+#if defined(TEST_MAPPING_NVDS)
+static void test_migrated_runtime_and_first_route_save(void)
+{
+    sf32lb52_bridge_mapping_profiles_t old;
+    sf32lb52_bridge_mapping_routes_t expected;
+    uint8_t wire[SF32LB52_BRIDGE_MAPPING_WIRE_SIZE];
+    uint8_t report[64];
+    int version, source, output;
+
+    sf32lb52_bridge_mapping_profiles_defaults(&old);
+    old.ds5.source_for_target[SF32LB52_BRIDGE_BUTTON_SOUTH] =
+        SF32LB52_BRIDGE_BUTTON_EAST;
+    old.ds5.source_for_target[SF32LB52_BRIDGE_BUTTON_EAST] =
+        SF32LB52_BRIDGE_MAPPING_NONE;
+    old.ns2pro.source_for_target[SF32LB52_BRIDGE_BUTTON_NORTH] =
+        SF32LB52_BRIDGE_BUTTON_EAST;
+    old.ns2pro.source_for_target[SF32LB52_BRIDGE_BUTTON_EAST] =
+        SF32LB52_BRIDGE_MAPPING_NONE;
+    for (version = 1; version <= 2; ++version) {
+        size_t len = version == 1
+            ? sf32lb52_bridge_mapping_serialize(&old.ds5, wire, sizeof(wire))
+            : sf32lb52_bridge_mapping_profiles_serialize(&old, wire, sizeof(wire));
+        fake_nvds_clear();
+        fake_nvds_seed(version == 1 ? "sf32_map_v1" : "sf32_map_v2", wire, len);
+        sf32lb52_bridge_runtime_init();
+        expected.ds5.ds5 = expected.ds5.ns2pro = old.ds5;
+        expected.ns2pro.ds5 = expected.ns2pro.ns2pro =
+            version == 1 ? old.ds5 : old.ns2pro;
+        assert_routes_equal(&expected);
+        assert(fake_nvds_write_count() == 0U);
+        for (source = 1; source <= 2; ++source) {
+            sf32lb52_bridge_input_state_t input = make_input(source == 1
+                ? SF32LB52_BRIDGE_INPUT_SOURCE_DUALSENSE_BT
+                : SF32LB52_BRIDGE_INPUT_SOURCE_NS2PRO_BLE,
+                SF32LB52_BRIDGE_BUTTON_EAST);
+            sf32lb52_bridge_runtime_release_input(
+                SF32LB52_BRIDGE_INPUT_SOURCE_NONE, 99U);
+            assert(sf32lb52_bridge_runtime_accept_input(&input, 100U));
+            for (output = 0; output < 2; ++output) {
+                bool south = version == 1 || source == 1;
+                actual_usb_override = output == 0
+                    ? Sf32lb52UsbRoleDualSense : Sf32lb52UsbRoleNintendo;
+                assert(sf32lb52_bridge_runtime_set_role(output == 0
+                    ? SF32LB52_BRIDGE_ROLE_DUALSENSE : SF32LB52_BRIDGE_ROLE_NS2PRO, false));
+                assert(sf32lb52_bridge_runtime_make_input_report(
+                    101U, report, sizeof(report)) == sizeof(report));
+                assert_face_report(output == 0
+                    ? SF32LB52_BRIDGE_ROLE_DUALSENSE : SF32LB52_BRIDGE_ROLE_NS2PRO,
+                    report, south);
+            }
+        }
+        assert(sf32lb52_bridge_runtime_reset_route_button_mapping(
+            SF32LB52_BRIDGE_MAPPING_PROFILE_DS5,
+            SF32LB52_BRIDGE_MAPPING_OUTPUT_NS2PRO));
+        assert(sf32lb52_bridge_runtime_save_route_button_mapping(
+            SF32LB52_BRIDGE_MAPPING_PROFILE_DS5,
+            SF32LB52_BRIDGE_MAPPING_OUTPUT_NS2PRO));
+        sf32lb52_bridge_mapping_defaults(&expected.ds5.ns2pro);
+        mapping_reboot();
+        assert_routes_equal(&expected); /* First v3 save retains all legacy maps. */
+    }
+    actual_usb_override = -1;
+}
+#endif
+
 int main(void)
 {
     reset_to_defaults();
@@ -621,9 +902,12 @@ int main(void)
     test_mapping_reboot_and_independent_reset();
     reset_to_defaults();
     test_mapping_legacy_active_commands();
+    test_four_route_runtime_isolation();
+    test_four_route_save_reset_isolation();
 #if defined(TEST_MAPPING_NVDS)
     reset_to_defaults();
     test_mapping_runtime_nvds_failure();
+    test_migrated_runtime_and_first_route_save();
 #endif
     return 0;
 }

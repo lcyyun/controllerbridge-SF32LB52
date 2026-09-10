@@ -7,8 +7,12 @@
 #define MAPPING_PROFILES_WIRE_VERSION 2U
 #define MAPPING_CONFIG_CRC_OFFSET 36U
 #define MAPPING_PROFILES_CRC_OFFSET 76U
+#define MAPPING_ROUTES_CRC_OFFSET 108U
 #define DS5_REPORT_ID 0x01U
 #define NS2_REPORT_ID 0x05U
+
+_Static_assert(SF32LB52_BRIDGE_BUTTON_COUNT == 25U,
+               "Mapping v3 wire offsets require exactly 25 buttons");
 
 static const uint8_t g_mapping_magic[4] = {'S', 'F', 'M', '1'};
 static const char *const g_button_names[SF32LB52_BRIDGE_BUTTON_COUNT] = {
@@ -457,6 +461,162 @@ bool sf32lb52_bridge_mapping_profiles_deserialize(
     return true;
 }
 
+void sf32lb52_bridge_mapping_routes_defaults(
+    sf32lb52_bridge_mapping_routes_t *routes)
+{
+    if (routes != 0) {
+        sf32lb52_bridge_mapping_profiles_defaults(&routes->ds5);
+        sf32lb52_bridge_mapping_profiles_defaults(&routes->ns2pro);
+    }
+}
+
+bool sf32lb52_bridge_mapping_routes_validate(
+    const sf32lb52_bridge_mapping_routes_t *routes)
+{
+    return routes != 0 &&
+        sf32lb52_bridge_mapping_profiles_validate(&routes->ds5) &&
+        sf32lb52_bridge_mapping_profiles_validate(&routes->ns2pro);
+}
+
+bool sf32lb52_bridge_mapping_routes_is_identity(
+    const sf32lb52_bridge_mapping_routes_t *routes)
+{
+    return routes != 0 &&
+        sf32lb52_bridge_mapping_is_identity(&routes->ds5.ds5) &&
+        sf32lb52_bridge_mapping_is_identity(&routes->ds5.ns2pro) &&
+        sf32lb52_bridge_mapping_is_identity(&routes->ns2pro.ds5) &&
+        sf32lb52_bridge_mapping_is_identity(&routes->ns2pro.ns2pro);
+}
+
+sf32lb52_bridge_mapping_config_t *sf32lb52_bridge_mapping_route(
+    sf32lb52_bridge_mapping_routes_t *routes,
+    sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_mapping_output_t output)
+{
+    sf32lb52_bridge_mapping_profiles_t *outputs;
+
+    if (routes == 0) {
+        return 0;
+    }
+    if (profile == SF32LB52_BRIDGE_MAPPING_PROFILE_DS5) {
+        outputs = &routes->ds5;
+    } else if (profile == SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO) {
+        outputs = &routes->ns2pro;
+    } else {
+        return 0;
+    }
+    if (output == SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5) {
+        return &outputs->ds5;
+    }
+    if (output == SF32LB52_BRIDGE_MAPPING_OUTPUT_NS2PRO) {
+        return &outputs->ns2pro;
+    }
+    return 0;
+}
+
+void sf32lb52_bridge_mapping_routes_from_profiles(
+    sf32lb52_bridge_mapping_routes_t *routes,
+    const sf32lb52_bridge_mapping_profiles_t *profiles)
+{
+    if (routes != 0 && sf32lb52_bridge_mapping_profiles_validate(profiles)) {
+        routes->ds5.ds5 = routes->ds5.ns2pro = profiles->ds5;
+        routes->ns2pro.ds5 = routes->ns2pro.ns2pro = profiles->ns2pro;
+    }
+}
+
+size_t sf32lb52_bridge_mapping_routes_serialize(
+    const sf32lb52_bridge_mapping_routes_t *routes,
+    uint8_t *wire, size_t wire_capacity)
+{
+    if (!sf32lb52_bridge_mapping_routes_validate(routes) || wire == 0 ||
+        wire_capacity < SF32LB52_BRIDGE_MAPPING_ROUTES_WIRE_SIZE) {
+        return 0U;
+    }
+    memset(wire, 0, SF32LB52_BRIDGE_MAPPING_ROUTES_WIRE_SIZE);
+    memcpy(wire, g_mapping_magic, sizeof(g_mapping_magic));
+    wire[4] = SF32LB52_BRIDGE_MAPPING_SCHEMA;
+    wire[5] = SF32LB52_BRIDGE_MAPPING_ROUTES_WIRE_SIZE;
+    wire[6] = SF32LB52_BRIDGE_BUTTON_COUNT;
+    wire[7] = 4U;
+    memcpy(wire + 8U, routes->ds5.ds5.source_for_target, 25U);
+    memcpy(wire + 33U, routes->ds5.ns2pro.source_for_target, 25U);
+    memcpy(wire + 58U, routes->ns2pro.ds5.source_for_target, 25U);
+    memcpy(wire + 83U, routes->ns2pro.ns2pro.source_for_target, 25U);
+    put_u32_le(wire + MAPPING_ROUTES_CRC_OFFSET,
+               crc32_bytes(wire, MAPPING_ROUTES_CRC_OFFSET));
+    return SF32LB52_BRIDGE_MAPPING_ROUTES_WIRE_SIZE;
+}
+
+bool sf32lb52_bridge_mapping_routes_deserialize(
+    const uint8_t *wire, size_t wire_len,
+    sf32lb52_bridge_mapping_routes_t *routes)
+{
+    sf32lb52_bridge_mapping_routes_t decoded;
+
+    if (wire == 0 || routes == 0 ||
+        wire_len != SF32LB52_BRIDGE_MAPPING_ROUTES_WIRE_SIZE ||
+        memcmp(wire, g_mapping_magic, sizeof(g_mapping_magic)) != 0 ||
+        wire[4] != SF32LB52_BRIDGE_MAPPING_SCHEMA ||
+        wire[5] != SF32LB52_BRIDGE_MAPPING_ROUTES_WIRE_SIZE ||
+        wire[6] != SF32LB52_BRIDGE_BUTTON_COUNT || wire[7] != 4U ||
+        get_u32_le(wire + MAPPING_ROUTES_CRC_OFFSET) !=
+            crc32_bytes(wire, MAPPING_ROUTES_CRC_OFFSET)) {
+        return false;
+    }
+    memcpy(decoded.ds5.ds5.source_for_target, wire + 8U, 25U);
+    memcpy(decoded.ds5.ns2pro.source_for_target, wire + 33U, 25U);
+    memcpy(decoded.ns2pro.ds5.source_for_target, wire + 58U, 25U);
+    memcpy(decoded.ns2pro.ns2pro.source_for_target, wire + 83U, 25U);
+    if (!sf32lb52_bridge_mapping_routes_validate(&decoded)) {
+        return false;
+    }
+    *routes = decoded;
+    return true;
+}
+
+sf32lb52_bridge_mapping_output_t sf32lb52_bridge_mapping_output_for_role(
+    sf32lb52_bridge_role_t role)
+{
+    switch (role) {
+    case SF32LB52_BRIDGE_ROLE_NS2PRO:
+        return SF32LB52_BRIDGE_MAPPING_OUTPUT_NS2PRO;
+    case SF32LB52_BRIDGE_ROLE_DUALSENSE:
+    case SF32LB52_BRIDGE_ROLE_DUALSENSE_EDGE:
+    case SF32LB52_BRIDGE_ROLE_XBOX_360:
+        return SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5;
+    default:
+        return SF32LB52_BRIDGE_MAPPING_OUTPUT_UNSPECIFIED;
+    }
+}
+
+const char *sf32lb52_bridge_mapping_output_name(
+    sf32lb52_bridge_mapping_output_t output)
+{
+    switch (output) {
+    case SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5: return "ds5";
+    case SF32LB52_BRIDGE_MAPPING_OUTPUT_NS2PRO: return "ns2pro";
+    default: return "active";
+    }
+}
+
+bool sf32lb52_bridge_mapping_output_parse(
+    const char *name, sf32lb52_bridge_mapping_output_t *output)
+{
+    if (name == 0 || output == 0) {
+        return false;
+    }
+    if (strcmp(name, "ds5") == 0 || strcmp(name, "dse") == 0 ||
+        strcmp(name, "edge") == 0 || strcmp(name, "dualsense-edge") == 0) {
+        *output = SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5;
+        return true;
+    }
+    if (strcmp(name, "ns2pro") == 0) {
+        *output = SF32LB52_BRIDGE_MAPPING_OUTPUT_NS2PRO;
+        return true;
+    }
+    return false;
+}
+
 const char *sf32lb52_bridge_mapping_profile_name(
     sf32lb52_bridge_mapping_profile_t profile)
 {
@@ -479,7 +639,8 @@ bool sf32lb52_bridge_mapping_profile_parse(
         return false;
     }
     if (strcmp(name, "ds5") == 0 || strcmp(name, "ps") == 0 ||
-        strcmp(name, "dualsense") == 0) {
+        strcmp(name, "dualsense") == 0 || strcmp(name, "dse") == 0 ||
+        strcmp(name, "edge") == 0 || strcmp(name, "dualsense-edge") == 0) {
         *profile = SF32LB52_BRIDGE_MAPPING_PROFILE_DS5;
         return true;
     }
@@ -497,9 +658,9 @@ int sf32lb52_bridge_mapping_parse_command(
 {
     const char *cursor;
     char verb[8];
-    char profile_name[16];
-    char target_name[24];
-    char source_name[24];
+    char args[4][24];
+    size_t count = 0U;
+    size_t first_button = 0U;
     uint8_t target;
     uint8_t source;
 
@@ -517,51 +678,48 @@ int sf32lb52_bridge_mapping_parse_command(
     if (!next_token(&cursor, verb, sizeof(verb))) {
         return -1;
     }
-    if (strcmp(verb, "get") == 0) {
-        if (!at_end(cursor)) {
-            if (!next_token(&cursor, profile_name, sizeof(profile_name)) ||
-                !sf32lb52_bridge_mapping_profile_parse(
-                    profile_name, &command->profile) || !at_end(cursor)) {
-                return -1;
-            }
-        }
-        command->kind = SF32LB52_BRIDGE_MAPPING_COMMAND_GET;
-        return 1;
-    }
-    if (strcmp(verb, "reset") == 0 || strcmp(verb, "save") == 0) {
-        if (!at_end(cursor)) {
-            if (!next_token(&cursor, profile_name, sizeof(profile_name)) ||
-                !sf32lb52_bridge_mapping_profile_parse(
-                    profile_name, &command->profile) || !at_end(cursor)) {
-                return -1;
-            }
-        }
-        command->kind = strcmp(verb, "reset") == 0
-            ? SF32LB52_BRIDGE_MAPPING_COMMAND_RESET
-            : SF32LB52_BRIDGE_MAPPING_COMMAND_SAVE;
-        return 1;
-    }
-    if (strcmp(verb, "set") != 0) {
-        return -1;
-    }
-    if (!next_token(&cursor, target_name, sizeof(target_name))) {
-        return -1;
-    }
-    /* New form: mapping set ds5 south east. Keep the old three-token form. */
-    if (!sf32lb52_bridge_button_parse(target_name, &target)) {
-        if (!sf32lb52_bridge_mapping_profile_parse(
-                target_name, &command->profile) ||
-            !next_token(&cursor, target_name, sizeof(target_name)) ||
-            !next_token(&cursor, source_name, sizeof(source_name))) {
+    while (!at_end(cursor)) {
+        if (count == 4U ||
+            !next_token(&cursor, args[count], sizeof(args[count]))) {
             return -1;
         }
-    } else if (!next_token(&cursor, source_name, sizeof(source_name))) {
+        ++count;
+    }
+    if (strcmp(verb, "get") == 0 || strcmp(verb, "reset") == 0 ||
+        strcmp(verb, "save") == 0) {
+        if (count > 2U ||
+            (count >= 1U && !sf32lb52_bridge_mapping_profile_parse(
+                args[0], &command->profile)) ||
+            (count == 2U && !sf32lb52_bridge_mapping_output_parse(
+                args[1], &command->output))) {
+            return -1;
+        }
+        command->kind = strcmp(verb, "get") == 0
+            ? SF32LB52_BRIDGE_MAPPING_COMMAND_GET
+            : strcmp(verb, "reset") == 0
+                ? SF32LB52_BRIDGE_MAPPING_COMMAND_RESET
+                : SF32LB52_BRIDGE_MAPPING_COMMAND_SAVE;
+        return 1;
+    }
+    if (strcmp(verb, "set") != 0 || count < 2U) {
         return -1;
     }
-    if (!at_end(cursor) ||
-        !sf32lb52_bridge_button_parse(target_name, &target) ||
+    if (count >= 3U) {
+        if (!sf32lb52_bridge_mapping_profile_parse(
+                args[0], &command->profile)) {
+            return -1;
+        }
+        first_button = 1U;
+    }
+    if (count == 4U) {
+        if (!sf32lb52_bridge_mapping_output_parse(args[1], &command->output)) {
+            return -1;
+        }
+        first_button = 2U;
+    }
+    if (!sf32lb52_bridge_button_parse(args[first_button], &target) ||
         target == SF32LB52_BRIDGE_MAPPING_NONE ||
-        !sf32lb52_bridge_button_parse(source_name, &source)) {
+        !sf32lb52_bridge_button_parse(args[first_button + 1U], &source)) {
         return -1;
     }
     command->kind = SF32LB52_BRIDGE_MAPPING_COMMAND_SET;
@@ -570,8 +728,9 @@ int sf32lb52_bridge_mapping_parse_command(
     return 1;
 }
 
-int sf32lb52_bridge_mapping_format_profile_json(
+int sf32lb52_bridge_mapping_format_route_json(
     sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_mapping_output_t output,
     const sf32lb52_bridge_mapping_config_t *config,
     bool dirty,
     char *json,
@@ -586,9 +745,11 @@ int sf32lb52_bridge_mapping_format_profile_json(
         return -1;
     }
     written = snprintf(json, json_len,
-                       "{\"ok\":true,\"profile\":\"%s\"," 
+                       "{\"ok\":true,\"profile\":\"%s\","
+                       "\"output\":\"%s\",\"mapping_schema\":3,"
                        "\"identity\":%s,\"dirty\":%s,\"entries\":{",
                        sf32lb52_bridge_mapping_profile_name(profile),
+                       sf32lb52_bridge_mapping_output_name(output),
                        sf32lb52_bridge_mapping_is_identity(config) ?
                            "true" : "false",
                        dirty ? "true" : "false");
@@ -618,6 +779,16 @@ int sf32lb52_bridge_mapping_format_profile_json(
     }
     used += (size_t)written;
     return (int)used;
+}
+
+int sf32lb52_bridge_mapping_format_profile_json(
+    sf32lb52_bridge_mapping_profile_t profile,
+    const sf32lb52_bridge_mapping_config_t *config,
+    bool dirty, char *json, size_t json_len)
+{
+    return sf32lb52_bridge_mapping_format_route_json(
+        profile, SF32LB52_BRIDGE_MAPPING_OUTPUT_UNSPECIFIED,
+        config, dirty, json, json_len);
 }
 
 int sf32lb52_bridge_mapping_format_json(

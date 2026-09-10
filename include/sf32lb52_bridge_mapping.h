@@ -14,6 +14,8 @@ extern "C" {
 #define SF32LB52_BRIDGE_MAPPING_NONE UINT8_C(0xff)
 #define SF32LB52_BRIDGE_MAPPING_CONFIG_WIRE_SIZE 40U
 #define SF32LB52_BRIDGE_MAPPING_WIRE_SIZE 80U
+#define SF32LB52_BRIDGE_MAPPING_ROUTES_WIRE_SIZE 112U
+#define SF32LB52_BRIDGE_MAPPING_SCHEMA 3U
 
 typedef struct {
     uint8_t source_for_target[SF32LB52_BRIDGE_BUTTON_COUNT];
@@ -31,6 +33,19 @@ typedef struct {
     sf32lb52_bridge_mapping_config_t ns2pro;
 } sf32lb52_bridge_mapping_profiles_t;
 
+/* Outer member = physical source; inner member = USB output.
+ * The two-profile type and its v2 codec remain available for migration. */
+typedef struct {
+    sf32lb52_bridge_mapping_profiles_t ds5;
+    sf32lb52_bridge_mapping_profiles_t ns2pro;
+} sf32lb52_bridge_mapping_routes_t;
+
+typedef enum {
+    SF32LB52_BRIDGE_MAPPING_OUTPUT_UNSPECIFIED = 0,
+    SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5,
+    SF32LB52_BRIDGE_MAPPING_OUTPUT_NS2PRO
+} sf32lb52_bridge_mapping_output_t;
+
 typedef enum {
     SF32LB52_BRIDGE_MAPPING_COMMAND_NONE = 0,
     SF32LB52_BRIDGE_MAPPING_COMMAND_GET,
@@ -42,6 +57,7 @@ typedef enum {
 typedef struct {
     sf32lb52_bridge_mapping_command_kind_t kind;
     sf32lb52_bridge_mapping_profile_t profile;
+    sf32lb52_bridge_mapping_output_t output;
     sf32lb52_bridge_button_t target;
     uint8_t source;
 } sf32lb52_bridge_mapping_command_t;
@@ -99,6 +115,35 @@ bool sf32lb52_bridge_mapping_profiles_deserialize(
     size_t wire_len,
     sf32lb52_bridge_mapping_profiles_t *profiles);
 
+void sf32lb52_bridge_mapping_routes_defaults(
+    sf32lb52_bridge_mapping_routes_t *routes);
+bool sf32lb52_bridge_mapping_routes_validate(
+    const sf32lb52_bridge_mapping_routes_t *routes);
+bool sf32lb52_bridge_mapping_routes_is_identity(
+    const sf32lb52_bridge_mapping_routes_t *routes);
+sf32lb52_bridge_mapping_config_t *sf32lb52_bridge_mapping_route(
+    sf32lb52_bridge_mapping_routes_t *routes,
+    sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_mapping_output_t output);
+void sf32lb52_bridge_mapping_routes_from_profiles(
+    sf32lb52_bridge_mapping_routes_t *routes,
+    const sf32lb52_bridge_mapping_profiles_t *profiles);
+size_t sf32lb52_bridge_mapping_routes_serialize(
+    const sf32lb52_bridge_mapping_routes_t *routes,
+    uint8_t *wire, size_t wire_capacity);
+bool sf32lb52_bridge_mapping_routes_deserialize(
+    const uint8_t *wire, size_t wire_len,
+    sf32lb52_bridge_mapping_routes_t *routes);
+
+/* Edge shares DS5 output. Xbox uses this compatibility route only; this does
+ * not imply supported Xbox USB enumeration or a hardware-verified pair. */
+sf32lb52_bridge_mapping_output_t sf32lb52_bridge_mapping_output_for_role(
+    sf32lb52_bridge_role_t role);
+const char *sf32lb52_bridge_mapping_output_name(
+    sf32lb52_bridge_mapping_output_t output);
+bool sf32lb52_bridge_mapping_output_parse(
+    const char *name, sf32lb52_bridge_mapping_output_t *output);
+
 const char *sf32lb52_bridge_mapping_profile_name(
     sf32lb52_bridge_mapping_profile_t profile);
 bool sf32lb52_bridge_mapping_profile_parse(
@@ -123,6 +168,11 @@ int sf32lb52_bridge_mapping_format_profile_json(
     bool dirty,
     char *json,
     size_t json_len);
+int sf32lb52_bridge_mapping_format_route_json(
+    sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_mapping_output_t output,
+    const sf32lb52_bridge_mapping_config_t *config,
+    bool dirty, char *json, size_t json_len);
 
 #ifdef __cplusplus
 }

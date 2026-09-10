@@ -1,5 +1,6 @@
 #include "sf32lb52_bridge_runtime.h"
 #include "sf32lb52_bridge_mapping_store.h"
+#include "sf32lb52_usb_device.h"
 
 #include <string.h>
 
@@ -9,7 +10,8 @@ typedef struct {
     sf32lb52_bridge_persisted_config_t config;
     sf32lb52_bridge_runtime_status_t status;
     sf32lb52_bridge_input_state_t input;
-    sf32lb52_bridge_mapping_profiles_t mapping_profiles;
+    sf32lb52_bridge_mapping_routes_t mapping_profiles;
+    sf32lb52_bridge_mapping_routes_t saved_mapping;
     volatile uint32_t input_sequence;
     volatile uint32_t mapping_sequence;
     uint8_t report_sequence;
@@ -21,6 +23,18 @@ typedef struct {
 } bridge_runtime_t;
 
 static bridge_runtime_t g_runtime;
+
+static sf32lb52_bridge_role_t actual_output_role(void)
+{
+    /* Requested config can lead USB re-enumeration by several task ticks. */
+    switch (sf32lb52_usb_get_role()) {
+    case Sf32lb52UsbRoleNintendo: return SF32LB52_BRIDGE_ROLE_NS2PRO;
+    case Sf32lb52UsbRoleDualSense: return SF32LB52_BRIDGE_ROLE_DUALSENSE;
+    case Sf32lb52UsbRoleDualSenseEdge: return SF32LB52_BRIDGE_ROLE_DUALSENSE_EDGE;
+    case Sf32lb52UsbRoleXbox360: return SF32LB52_BRIDGE_ROLE_XBOX_360;
+    default: return (sf32lb52_bridge_role_t)-1;
+    }
+}
 
 static int valid_role(sf32lb52_bridge_role_t role)
 {
@@ -86,7 +100,7 @@ static bool read_input(sf32lb52_bridge_input_state_t *state)
 }
 
 static void write_mapping(
-    const sf32lb52_bridge_mapping_profiles_t *mapping_profiles)
+    const sf32lb52_bridge_mapping_routes_t *mapping_profiles)
 {
     g_runtime.mapping_sequence++;
     memory_barrier();
@@ -94,13 +108,15 @@ static void write_mapping(
     memory_barrier();
     g_runtime.mapping_sequence++;
     g_runtime.status.mapping_custom =
-        sf32lb52_bridge_mapping_is_identity(&mapping_profiles->ds5) &&
-        sf32lb52_bridge_mapping_is_identity(&mapping_profiles->ns2pro)
+        sf32lb52_bridge_mapping_routes_is_identity(mapping_profiles)
             ? 0U : 1U;
+    g_runtime.status.mapping_dirty =
+        memcmp(mapping_profiles, &g_runtime.saved_mapping,
+               sizeof(*mapping_profiles)) != 0 ? 1U : 0U;
 }
 
 static bool read_mapping(
-    sf32lb52_bridge_mapping_profiles_t *mapping_profiles)
+    sf32lb52_bridge_mapping_routes_t *mapping_profiles)
 {
     uint32_t before;
     uint32_t after;
@@ -129,22 +145,6 @@ static sf32lb52_bridge_mapping_profile_t mapping_profile_for_source(
     return source == SF32LB52_BRIDGE_INPUT_SOURCE_NS2PRO_BLE
         ? SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO
         : SF32LB52_BRIDGE_MAPPING_PROFILE_DS5;
-}
-
-static sf32lb52_bridge_mapping_config_t *mapping_config_for_profile(
-    sf32lb52_bridge_mapping_profiles_t *profiles,
-    sf32lb52_bridge_mapping_profile_t profile)
-{
-    if (profiles == 0) {
-        return 0;
-    }
-    if (profile == SF32LB52_BRIDGE_MAPPING_PROFILE_DS5) {
-        return &profiles->ds5;
-    }
-    if (profile == SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO) {
-        return &profiles->ns2pro;
-    }
-    return 0;
 }
 
 static void set_neutral_input(void)
@@ -195,6 +195,7 @@ void sf32lb52_bridge_runtime_init(void)
     loaded = sf32lb52_bridge_settings_load(&g_runtime.config);
     mapping_loaded = sf32lb52_bridge_mapping_store_load(
         &g_runtime.mapping_profiles);
+    g_runtime.saved_mapping = g_runtime.mapping_profiles;
     if (!valid_role(g_runtime.config.output_role)) {
         sf32lb52_bridge_settings_defaults(&g_runtime.config);
         loaded = false;
@@ -204,8 +205,7 @@ void sf32lb52_bridge_runtime_init(void)
     g_runtime.status.active_input = SF32LB52_BRIDGE_INPUT_SOURCE_NONE;
     g_runtime.status.last_persist_ok = loaded ? 1U : 0U;
     g_runtime.status.mapping_custom =
-        sf32lb52_bridge_mapping_is_identity(&g_runtime.mapping_profiles.ds5) &&
-        sf32lb52_bridge_mapping_is_identity(&g_runtime.mapping_profiles.ns2pro)
+        sf32lb52_bridge_mapping_routes_is_identity(&g_runtime.mapping_profiles)
             ? 0U : 1U;
     g_runtime.status.mapping_last_persist_ok = mapping_loaded ? 1U : 0U;
     set_neutral_input();
@@ -462,14 +462,18 @@ size_t sf32lb52_bridge_runtime_make_input_report(uint32_t now_ms,
 {
     sf32lb52_bridge_input_state_t state;
     sf32lb52_bridge_input_state_t mapped;
-    sf32lb52_bridge_mapping_profiles_t mapping_profiles;
+    sf32lb52_bridge_mapping_routes_t mapping_profiles;
     sf32lb52_bridge_mapping_config_t *mapping;
+    sf32lb52_bridge_role_t role = actual_output_role();
     size_t required;
 
-    if (report == 0) {
+    /* The app labels its report cache with the requested role. Until USB
+     * catches up, retain its queued neutral report instead of mislabelling
+     * a report encoded for the old persona as the new one. */
+    if (report == 0 || role != g_runtime.config.output_role) {
         return 0U;
     }
-    required = sf32lb52_bridge_input_report_size(g_runtime.config.output_role);
+    required = sf32lb52_bridge_input_report_size(role);
     if (required == 0U || report_capacity < required) {
         return 0U;
     }
@@ -487,11 +491,12 @@ size_t sf32lb52_bridge_runtime_make_input_report(uint32_t now_ms,
     if (!read_mapping(&mapping_profiles)) {
         return 0U;
     }
-    mapping = mapping_config_for_profile(&mapping_profiles,
-                                         mapping_profile_for_source(state.source));
+    mapping = sf32lb52_bridge_mapping_route(
+        &mapping_profiles, mapping_profile_for_source(state.source),
+        sf32lb52_bridge_mapping_output_for_role(role));
     if (mapping == 0 ||
         !sf32lb52_bridge_mapping_apply(mapping, &state, &mapped) ||
-        sf32lb52_bridge_encode_input(g_runtime.config.output_role,
+        sf32lb52_bridge_encode_input(role,
                                      &mapped,
                                      g_runtime.report_sequence++,
                                      report,
@@ -692,47 +697,61 @@ bool sf32lb52_bridge_runtime_get_input_state(
 sf32lb52_bridge_mapping_profile_t
 sf32lb52_bridge_runtime_active_mapping_profile(void)
 {
-    return mapping_profile_for_source(g_runtime.status.active_input);
+    sf32lb52_bridge_input_state_t input;
+
+    /* A USB sync temporarily publishes neutral input; preserve the legacy
+     * command source selection until the next physical snapshot arrives. */
+    return read_input(&input) && input.source != SF32LB52_BRIDGE_INPUT_SOURCE_NONE
+        ? mapping_profile_for_source(input.source)
+        : mapping_profile_for_source(g_runtime.status.active_input);
 }
 
-bool sf32lb52_bridge_runtime_set_profile_button_mapping(
+sf32lb52_bridge_mapping_output_t
+sf32lb52_bridge_runtime_active_mapping_output(void)
+{
+    return sf32lb52_bridge_mapping_output_for_role(actual_output_role());
+}
+
+bool sf32lb52_bridge_runtime_set_route_button_mapping(
     sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_mapping_output_t output,
     sf32lb52_bridge_button_t target,
     uint8_t source)
 {
-    sf32lb52_bridge_mapping_profiles_t profiles;
+    sf32lb52_bridge_mapping_routes_t profiles;
     sf32lb52_bridge_mapping_config_t *mapping;
 
     if (!read_mapping(&profiles) ||
-        (mapping = mapping_config_for_profile(&profiles, profile)) == 0 ||
+        (mapping = sf32lb52_bridge_mapping_route(
+            &profiles, profile, output)) == 0 ||
         !sf32lb52_bridge_mapping_set(mapping, target, source)) {
         return false;
     }
     write_mapping(&profiles);
-    g_runtime.status.mapping_dirty = 1U;
     return true;
 }
 
-bool sf32lb52_bridge_runtime_reset_profile_button_mapping(
-    sf32lb52_bridge_mapping_profile_t profile)
+bool sf32lb52_bridge_runtime_reset_route_button_mapping(
+    sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_mapping_output_t output)
 {
-    sf32lb52_bridge_mapping_profiles_t profiles;
+    sf32lb52_bridge_mapping_routes_t profiles;
     sf32lb52_bridge_mapping_config_t *mapping;
 
     if (!read_mapping(&profiles) ||
-        (mapping = mapping_config_for_profile(&profiles, profile)) == 0) {
+        (mapping = sf32lb52_bridge_mapping_route(
+            &profiles, profile, output)) == 0) {
         return false;
     }
     sf32lb52_bridge_mapping_defaults(mapping);
     write_mapping(&profiles);
-    g_runtime.status.mapping_dirty = 1U;
     return true;
 }
 
 bool sf32lb52_bridge_runtime_save_profile_button_mapping(
     sf32lb52_bridge_mapping_profile_t profile)
 {
-    sf32lb52_bridge_mapping_profiles_t profiles;
+    sf32lb52_bridge_mapping_routes_t profiles;
 
     if (profile != SF32LB52_BRIDGE_MAPPING_PROFILE_DS5 &&
         profile != SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO) {
@@ -743,25 +762,95 @@ bool sf32lb52_bridge_runtime_save_profile_button_mapping(
         g_runtime.status.mapping_last_persist_ok = 0U;
         return false;
     }
+    g_runtime.saved_mapping = profiles;
     g_runtime.status.mapping_dirty = 0U;
     g_runtime.status.mapping_last_persist_ok = 1U;
     return true;
+}
+
+bool sf32lb52_bridge_runtime_save_route_button_mapping(
+    sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_mapping_output_t output)
+{
+    sf32lb52_bridge_mapping_routes_t live;
+    sf32lb52_bridge_mapping_routes_t saved = g_runtime.saved_mapping;
+    sf32lb52_bridge_mapping_config_t *from;
+    sf32lb52_bridge_mapping_config_t *to;
+
+    if (!read_mapping(&live) ||
+        (from = sf32lb52_bridge_mapping_route(&live, profile, output)) == 0 ||
+        (to = sf32lb52_bridge_mapping_route(&saved, profile, output)) == 0) {
+        return false;
+    }
+    *to = *from;
+    if (!sf32lb52_bridge_mapping_store_save(&saved)) {
+        g_runtime.status.mapping_last_persist_ok = 0U;
+        return false;
+    }
+    g_runtime.saved_mapping = saved;
+    g_runtime.status.mapping_dirty =
+        memcmp(&live, &saved, sizeof(live)) != 0 ? 1U : 0U;
+    g_runtime.status.mapping_last_persist_ok = 1U;
+    return true;
+}
+
+bool sf32lb52_bridge_runtime_get_route_button_mapping(
+    sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_mapping_output_t output,
+    sf32lb52_bridge_mapping_config_t *config)
+{
+    sf32lb52_bridge_mapping_routes_t profiles;
+    sf32lb52_bridge_mapping_config_t *mapping;
+
+    if (!read_mapping(&profiles) ||
+        (mapping = sf32lb52_bridge_mapping_route(
+            &profiles, profile, output)) == 0 ||
+        config == 0) {
+        return false;
+    }
+    *config = *mapping;
+    return true;
+}
+
+bool sf32lb52_bridge_runtime_set_profile_button_mapping(
+    sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_button_t target, uint8_t source)
+{
+    return sf32lb52_bridge_runtime_set_route_button_mapping(
+        profile, sf32lb52_bridge_runtime_active_mapping_output(), target, source);
+}
+
+bool sf32lb52_bridge_runtime_get_route_mapping_dirty(
+    sf32lb52_bridge_mapping_profile_t profile,
+    sf32lb52_bridge_mapping_output_t output,
+    bool *dirty)
+{
+    sf32lb52_bridge_mapping_config_t live;
+    sf32lb52_bridge_mapping_config_t *saved;
+
+    if (dirty == 0 ||
+        !sf32lb52_bridge_runtime_get_route_button_mapping(profile, output, &live) ||
+        (saved = sf32lb52_bridge_mapping_route(
+            &g_runtime.saved_mapping, profile, output)) == 0) {
+        return false;
+    }
+    *dirty = memcmp(&live, saved, sizeof(live)) != 0;
+    return true;
+}
+
+bool sf32lb52_bridge_runtime_reset_profile_button_mapping(
+    sf32lb52_bridge_mapping_profile_t profile)
+{
+    return sf32lb52_bridge_runtime_reset_route_button_mapping(
+        profile, sf32lb52_bridge_runtime_active_mapping_output());
 }
 
 bool sf32lb52_bridge_runtime_get_profile_button_mapping(
     sf32lb52_bridge_mapping_profile_t profile,
     sf32lb52_bridge_mapping_config_t *config)
 {
-    sf32lb52_bridge_mapping_profiles_t profiles;
-    sf32lb52_bridge_mapping_config_t *mapping;
-
-    if (!read_mapping(&profiles) ||
-        (mapping = mapping_config_for_profile(&profiles, profile)) == 0 ||
-        config == 0) {
-        return false;
-    }
-    *config = *mapping;
-    return true;
+    return sf32lb52_bridge_runtime_get_route_button_mapping(
+        profile, sf32lb52_bridge_runtime_active_mapping_output(), config);
 }
 
 bool sf32lb52_bridge_runtime_set_button_mapping(
@@ -793,11 +882,10 @@ bool sf32lb52_bridge_runtime_get_button_mapping(
 
 bool sf32lb52_bridge_runtime_mapping_is_identity(void)
 {
-    sf32lb52_bridge_mapping_profiles_t profiles;
+    sf32lb52_bridge_mapping_routes_t profiles;
 
     return read_mapping(&profiles) &&
-           sf32lb52_bridge_mapping_is_identity(&profiles.ds5) &&
-           sf32lb52_bridge_mapping_is_identity(&profiles.ns2pro);
+           sf32lb52_bridge_mapping_routes_is_identity(&profiles);
 }
 
 bool sf32lb52_bridge_runtime_patch_native_input_report(
@@ -806,27 +894,28 @@ bool sf32lb52_bridge_runtime_patch_native_input_report(
     size_t report_len)
 {
     sf32lb52_bridge_input_state_t input;
-    sf32lb52_bridge_mapping_profiles_t profiles;
+    sf32lb52_bridge_mapping_routes_t profiles;
     sf32lb52_bridge_mapping_config_t *mapping;
+    sf32lb52_bridge_role_t role = actual_output_role();
 
-    if (report == 0 || !read_mapping(&profiles)) {
+    if (report == 0 || role != g_runtime.config.output_role ||
+        !read_mapping(&profiles) || !read_input(&input)) {
         return false;
     }
-    mapping = mapping_config_for_profile(
-        &profiles, mapping_profile_for_source(g_runtime.status.active_input));
+    mapping = sf32lb52_bridge_mapping_route(
+        &profiles, mapping_profile_for_source(input.source),
+        sf32lb52_bridge_mapping_output_for_role(role));
     if (mapping == 0) {
         return false;
     }
-    if (sf32lb52_bridge_mapping_is_identity(mapping)) {
-        return true;
-    }
-    if (!read_input(&input) || !g_runtime.status.input_valid ||
+    if (!input.valid || input.source == SF32LB52_BRIDGE_INPUT_SOURCE_NONE ||
+        !g_runtime.status.input_valid ||
         (uint32_t)(now_ms - g_runtime.status.last_input_ms) >
             SF32LB52_BRIDGE_INPUT_STALE_MS) {
         return false;
     }
     return sf32lb52_bridge_mapping_patch_native_report(
-        mapping, g_runtime.config.output_role, &input, report, report_len);
+        mapping, role, &input, report, report_len);
 }
 
 const char *sf32lb52_bridge_role_name(sf32lb52_bridge_role_t role)
