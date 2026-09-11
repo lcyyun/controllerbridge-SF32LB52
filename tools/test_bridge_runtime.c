@@ -82,6 +82,10 @@ static void reset_to_defaults(void)
         SF32LB52_BRIDGE_MAPPING_PROFILE_DS5, SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5));
     assert(sf32lb52_bridge_runtime_reset_route_button_mapping(
         SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO, SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5));
+    assert(sf32lb52_bridge_runtime_reset_route_button_mapping(
+        SF32LB52_BRIDGE_MAPPING_PROFILE_DS5, SF32LB52_BRIDGE_MAPPING_OUTPUT_XBOX));
+    assert(sf32lb52_bridge_runtime_reset_route_button_mapping(
+        SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO, SF32LB52_BRIDGE_MAPPING_OUTPUT_XBOX));
     assert(sf32lb52_bridge_runtime_save_profile_button_mapping(
         SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO));
     sf32lb52_bridge_runtime_init();
@@ -283,7 +287,7 @@ static void test_mapping_runtime_persistence_and_native_paths(void)
 
     assert(sf32lb52_bridge_runtime_save_button_mapping());
     sf32lb52_bridge_runtime_init();
-    assert(sf32lb52_bridge_runtime_set_role(SF32LB52_BRIDGE_ROLE_DUALSENSE, false));
+    assert(sf32lb52_bridge_runtime_set_role(SF32LB52_BRIDGE_ROLE_XBOX_360, false));
     assert(sf32lb52_bridge_runtime_get_button_mapping(&mapping));
     assert(mapping.source_for_target[SF32LB52_BRIDGE_BUTTON_SOUTH] ==
            SF32LB52_BRIDGE_BUTTON_EAST);
@@ -292,6 +296,12 @@ static void test_mapping_runtime_persistence_and_native_paths(void)
 
     assert(sf32lb52_bridge_runtime_set_role(
         SF32LB52_BRIDGE_ROLE_DUALSENSE, false));
+    assert(sf32lb52_bridge_runtime_get_button_mapping(&mapping));
+    assert(sf32lb52_bridge_mapping_is_identity(&mapping));
+    assert(sf32lb52_bridge_runtime_set_button_mapping(
+        SF32LB52_BRIDGE_BUTTON_SOUTH, SF32LB52_BRIDGE_BUTTON_EAST));
+    assert(sf32lb52_bridge_runtime_set_button_mapping(
+        SF32LB52_BRIDGE_BUTTON_EAST, SF32LB52_BRIDGE_MAPPING_NONE));
     assert(sf32lb52_bridge_runtime_accept_input(&ds5, 200U));
     memset(report, 0xa5, sizeof(report));
     report[0] = 0x01U;
@@ -364,9 +374,10 @@ static void configure_distinct_profiles(void)
     sf32lb52_bridge_role_t old_role = sf32lb52_bridge_runtime_role();
     int output;
 
-    for (output = 0; output < 2; ++output) {
+    for (output = 0; output < 3; ++output) {
         assert(sf32lb52_bridge_runtime_set_role(output == 0
-            ? SF32LB52_BRIDGE_ROLE_DUALSENSE : SF32LB52_BRIDGE_ROLE_NS2PRO, false));
+            ? SF32LB52_BRIDGE_ROLE_DUALSENSE : output == 1
+            ? SF32LB52_BRIDGE_ROLE_NS2PRO : SF32LB52_BRIDGE_ROLE_XBOX_360, false));
         assert(sf32lb52_bridge_runtime_set_profile_button_mapping(
             SF32LB52_BRIDGE_MAPPING_PROFILE_DS5,
             SF32LB52_BRIDGE_BUTTON_SOUTH, SF32LB52_BRIDGE_BUTTON_EAST));
@@ -634,7 +645,7 @@ static sf32lb52_bridge_mapping_routes_t get_routes(void)
     int s, o;
 
     for (s = 1; s <= 2; ++s) {
-        for (o = 1; o <= 2; ++o) {
+        for (o = 1; o <= 3; ++o) {
             assert(sf32lb52_bridge_runtime_get_route_button_mapping(
                 (sf32lb52_bridge_mapping_profile_t)s,
                 (sf32lb52_bridge_mapping_output_t)o,
@@ -657,9 +668,9 @@ static void configure_four_routes(void)
     int s, o, button;
 
     for (s = 1; s <= 2; ++s) {
-        for (o = 1; o <= 2; ++o) {
+        for (o = 1; o <= 3; ++o) {
             /* A single east press becomes a different face button per route. */
-            int target = (s - 1) * 2 + o - 1;
+            int target = ((s - 1) * 2 + o - 1) % 4;
             for (button = 0; button < 4; ++button) {
                 assert(sf32lb52_bridge_runtime_set_route_button_mapping(
                     (sf32lb52_bridge_mapping_profile_t)s,
@@ -699,7 +710,8 @@ static void test_four_route_runtime_isolation(void)
         assert(sf32lb52_bridge_runtime_accept_input(&input, 100U));
         for (r = 0U; r < 4U; ++r) {
             bool ns2_output = roles[r] == Sf32lb52UsbRoleNintendo;
-            int target = (s - 1) * 2 + (ns2_output ? 1 : 0);
+            int target = ((s - 1) * 2 + (ns2_output ? 1 :
+                roles[r] == Sf32lb52UsbRoleXbox360 ? 2 : 0)) % 4;
             sf32lb52_bridge_role_t role = ns2_output
                 ? SF32LB52_BRIDGE_ROLE_NS2PRO
                 : roles[r] == Sf32lb52UsbRoleDualSenseEdge
@@ -714,7 +726,9 @@ static void test_four_route_runtime_isolation(void)
             assert(sf32lb52_bridge_runtime_set_role(ns2_output
                 ? SF32LB52_BRIDGE_ROLE_DUALSENSE : SF32LB52_BRIDGE_ROLE_NS2PRO, false));
             assert(sf32lb52_bridge_runtime_active_mapping_output() == (ns2_output
-                ? SF32LB52_BRIDGE_MAPPING_OUTPUT_NS2PRO : SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5));
+                ? SF32LB52_BRIDGE_MAPPING_OUTPUT_NS2PRO :
+                roles[r] == Sf32lb52UsbRoleXbox360 ? SF32LB52_BRIDGE_MAPPING_OUTPUT_XBOX :
+                SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5));
             assert(sf32lb52_bridge_runtime_get_profile_button_mapping(
                 (sf32lb52_bridge_mapping_profile_t)s, &legacy));
             assert(memcmp(&legacy, sf32lb52_bridge_mapping_route(&expected,
@@ -767,7 +781,7 @@ static void test_four_route_save_reset_isolation(void)
     int s, o;
 
     for (s = 1; s <= 2; ++s) {
-        for (o = 1; o <= 2; ++o) {
+        for (o = 1; o <= 3; ++o) {
             sf32lb52_bridge_mapping_profile_t source = (sf32lb52_bridge_mapping_profile_t)s;
             sf32lb52_bridge_mapping_output_t output = (sf32lb52_bridge_mapping_output_t)o;
             reset_to_defaults();
@@ -844,8 +858,8 @@ static void test_migrated_runtime_and_first_route_save(void)
         fake_nvds_clear();
         fake_nvds_seed(version == 1 ? "sf32_map_v1" : "sf32_map_v2", wire, len);
         sf32lb52_bridge_runtime_init();
-        expected.ds5.ds5 = expected.ds5.ns2pro = old.ds5;
-        expected.ns2pro.ds5 = expected.ns2pro.ns2pro =
+        expected.ds5.ds5 = expected.ds5.ns2pro = expected.ds5.xbox = old.ds5;
+        expected.ns2pro.ds5 = expected.ns2pro.ns2pro = expected.ns2pro.xbox =
             version == 1 ? old.ds5 : old.ns2pro;
         assert_routes_equal(&expected);
         assert(fake_nvds_write_count() == 0U);

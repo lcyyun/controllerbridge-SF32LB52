@@ -85,7 +85,7 @@ static void assert_route_reply(const char *reply, const char *source,
     char field[96];
 
     assert(strstr(reply, "\"ok\":true") != NULL);
-    assert(strstr(reply, "\"mapping_schema\":3") != NULL);
+    assert(strstr(reply, "\"mapping_schema\":4") != NULL);
     snprintf(field, sizeof(field), "\"profile\":\"%s\"", source);
     assert(strstr(reply, field) != NULL);
     snprintf(field, sizeof(field), "\"output\":\"%s\"", output);
@@ -154,22 +154,22 @@ static void test_legacy_uses_actual_usb(void)
     assert_route_reply(run_command("mapping get ds5"), "ds5", "ds5", "south");
     assert_route_reply(run_command("mapping set edge dse south north"), "ds5", "ds5", "north");
     actual_role = Sf32lb52UsbRoleXbox360;
-    assert_route_reply(run_command("mapping get ds5"), "ds5", "ds5", "north");
+    assert_route_reply(run_command("mapping get ds5"), "ds5", "xbox", "south");
 
     sf32lb52_bridge_input_state_reset(&input);
     input.valid = 1U;
     input.source = SF32LB52_BRIDGE_INPUT_SOURCE_NS2PRO_BLE;
     assert(sf32lb52_bridge_runtime_accept_input(&input, 100U));
-    assert_route_reply(run_command("mapping set south west"), "ns2pro", "ds5", "west");
-    assert_route_reply(run_command("mapping get"), "ns2pro", "ds5", "west");
+    assert_route_reply(run_command("mapping set south west"), "ns2pro", "xbox", "west");
+    assert_route_reply(run_command("mapping get"), "ns2pro", "xbox", "west");
     /* Legacy save still checkpoints every draft, including other outputs. */
-    assert_route_reply(run_command("mapping save ns2pro"), "ns2pro", "ds5", "west");
+    assert_route_reply(run_command("mapping save ns2pro"), "ns2pro", "xbox", "west");
     sf32lb52_bridge_runtime_init();
-    assert_route_reply(run_command("mapping get ns2pro ds5"), "ns2pro", "ds5", "west");
+    assert_route_reply(run_command("mapping get ns2pro xbox"), "ns2pro", "xbox", "west");
     assert_route_reply(run_command("mapping get ds5 ns2pro"), "ds5", "ns2pro", "east");
-    assert_route_reply(run_command("mapping reset ns2pro"), "ns2pro", "ds5", "south");
+    assert_route_reply(run_command("mapping reset ns2pro"), "ns2pro", "xbox", "south");
     assert_route_reply(run_command("mapping get ds5 ds5"), "ds5", "ds5", "north");
-    assert(strstr(run_command("mapping get ds5 xbox"), "\"ok\":false") != NULL);
+    assert(strstr(run_command("mapping get ds5 unknown"), "\"ok\":false") != NULL);
     assert(strstr(run_command("mapping set ds5 ns2pro none east"), "\"ok\":false") != NULL);
     assert_route_reply(run_command("mapping get ds5 ns2pro"), "ds5", "ns2pro", "east");
     assert(handle_mapping_command("status") == 0);

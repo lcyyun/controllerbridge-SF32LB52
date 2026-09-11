@@ -9,7 +9,8 @@
 #endif
 #endif
 
-#define BRIDGE_MAPPING_KEY "sf32_map_v3"
+#define BRIDGE_MAPPING_KEY "sf32_map_v4"
+#define BRIDGE_MAPPING_V3_KEY "sf32_map_v3"
 #define BRIDGE_MAPPING_PROFILES_KEY "sf32_map_v2"
 #define BRIDGE_MAPPING_LEGACY_KEY "sf32_map_v1"
 
@@ -89,7 +90,7 @@ bool sf32lb52_bridge_mapping_store_load(
     sf32lb52_bridge_mapping_routes_t *routes)
 {
     /* NVDS returns bytes copied; one extra byte detects oversized records. */
-    uint8_t wire[SF32LB52_BRIDGE_MAPPING_ROUTES_WIRE_SIZE + 1U];
+    uint8_t wire[SF32LB52_BRIDGE_MAPPING_ROUTES_V3_WIRE_SIZE + 1U];
     sf32lb52_bridge_mapping_profiles_t profiles;
     sf32lb52_bridge_mapping_config_t legacy;
     size_t wire_len;
@@ -115,6 +116,17 @@ bool sf32lb52_bridge_mapping_store_load(
         /* A newer record is authoritative, even when corrupt. */
         g_status.load_failures++;
         return false;
+    }
+    wire_len = backend_read(BRIDGE_MAPPING_V3_KEY, wire, sizeof(wire));
+    if (wire_len != 0U) {
+        if (!sf32lb52_bridge_mapping_routes_v3_deserialize(
+                wire, wire_len, routes)) {
+            g_status.load_failures++;
+            return false;
+        }
+        g_status.loaded = 1U;
+        g_status.used_defaults = 0U;
+        return true;
     }
     wire_len = backend_read(BRIDGE_MAPPING_PROFILES_KEY, wire, sizeof(wire));
     if (wire_len != 0U) {

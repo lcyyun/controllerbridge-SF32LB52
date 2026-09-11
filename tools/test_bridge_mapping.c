@@ -54,6 +54,9 @@ static void test_identity_and_remap(void)
     assert((output.buttons & BUTTON(SF32LB52_BRIDGE_BUTTON_NORTH)) != 0U);
     assert((output.buttons & BUTTON(SF32LB52_BRIDGE_BUTTON_EAST)) == 0U);
     assert(output.left_x == input.left_x && output.gyro[2] == input.gyro[2]);
+    input.buttons = 0U;
+    assert(sf32lb52_bridge_mapping_apply(&mapping, &input, &output));
+    assert(output.buttons == 0U);
 }
 
 static void test_trigger_targets(void)
@@ -77,6 +80,9 @@ static void test_trigger_targets(void)
     assert(output.right_trigger == 0U);
     assert((output.buttons & BUTTON(SF32LB52_BRIDGE_BUTTON_LEFT_TRIGGER)) != 0U);
     assert((output.buttons & BUTTON(SF32LB52_BRIDGE_BUTTON_RIGHT_TRIGGER)) == 0U);
+    input.buttons = 0U;
+    assert(sf32lb52_bridge_mapping_apply(&mapping, &input, &output));
+    assert(output.left_trigger == 0U && output.right_trigger == 0U);
 }
 
 static void test_wire_and_commands(void)
@@ -362,14 +368,15 @@ static void test_four_route_wire_and_commands(void)
     const sf32lb52_bridge_mapping_output_t outputs[] = {
         SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5,
         SF32LB52_BRIDGE_MAPPING_OUTPUT_NS2PRO,
+        SF32LB52_BRIDGE_MAPPING_OUTPUT_XBOX,
     };
     const char *verbs[] = {"get", "reset", "save", "set"};
     const char *bad_commands[] = {
-        "mapping get ds5 xbox", "mapping get ds5 ns2pro extra",
+        "mapping get ds5 unknown", "mapping get ds5 ns2pro extra",
         "mapping get none ds5", "mapping set ds5 ns2pro south",
         "mapping set ds5 ns2pro none south", "mapping set ds5 ns2pro south BAD",
         "mapping set ds5 ns2pro south east extra",
-        "mapping reset ns2pro xbox", "mapping save ds5 ns2pro extra",
+        "mapping reset ns2pro unknown", "mapping save ds5 ns2pro extra",
         "mapping set ds5 ds5 this_token_is_far_too_long_for_the_parser east",
     };
     sf32lb52_bridge_mapping_routes_t routes, decoded, sentinel;
@@ -382,11 +389,12 @@ static void test_four_route_wire_and_commands(void)
     sf32lb52_bridge_mapping_routes_defaults(&routes);
     assert(sf32lb52_bridge_mapping_routes_is_identity(&routes));
     for (s = 0U; s < 2U; ++s) {
-        for (o = 0U; o < 2U; ++o) {
+        for (o = 0U; o < 3U; ++o) {
             sf32lb52_bridge_mapping_config_t *config =
                 sf32lb52_bridge_mapping_route(&routes, sources[s], outputs[o]);
             assert(config != NULL);
-            config->source_for_target[0] = (uint8_t)(s * 2U + o + 1U);
+            config->source_for_target[0] = (uint8_t)(s * 3U + o + 1U);
+            config->source_for_target[24] = SF32LB52_BRIDGE_MAPPING_NONE;
             for (v = 0U; v < 4U; ++v) {
                 snprintf(text, sizeof(text), "mapping %s %s %s%s", verbs[v],
                          sf32lb52_bridge_mapping_profile_name(sources[s]),
@@ -404,7 +412,7 @@ static void test_four_route_wire_and_commands(void)
                      sf32lb52_bridge_mapping_profile_name(sources[s]),
                      sf32lb52_bridge_mapping_output_name(outputs[o]));
             assert(strstr(json, text) != NULL);
-            assert(strstr(json, "\"mapping_schema\":3") != NULL);
+            assert(strstr(json, "\"mapping_schema\":4") != NULL);
             assert(sf32lb52_bridge_mapping_format_route_json(
                 sources[s], outputs[o], config, true, text, 8U) == -1);
         }
@@ -412,8 +420,7 @@ static void test_four_route_wire_and_commands(void)
     assert(!sf32lb52_bridge_mapping_routes_is_identity(&routes));
     assert(sf32lb52_bridge_mapping_routes_serialize(&routes, good, sizeof(good)) ==
            sizeof(good));
-    assert(good[4] == 3U && good[5] == 112U && good[6] == 25U && good[7] == 4U);
-    assert(good[8] == 1U && good[33] == 2U && good[58] == 3U && good[83] == 4U);
+    assert(good[4] == 4U && good[5] == 106U && good[6] == 25U && good[7] == 6U);
     assert(sf32lb52_bridge_mapping_routes_deserialize(good, sizeof(good), &decoded));
     assert(memcmp(&routes, &decoded, sizeof(routes)) == 0);
     memset(&sentinel, 0xa5, sizeof(sentinel));
@@ -430,15 +437,22 @@ static void test_four_route_wire_and_commands(void)
         assert(!sf32lb52_bridge_mapping_routes_deserialize(good, i, &decoded));
         assert(sf32lb52_bridge_mapping_routes_serialize(&routes, wire, i) == 0U);
     }
-    for (i = 0U; i < 4U; ++i) {
+    for (i = 0U; i < 6U; ++i) {
+        size_t bit = i * 25U * 5U;
+        size_t byte = 8U + bit / 8U;
+        unsigned int shift = (unsigned int)(bit % 8U);
+        uint16_t pair;
         memcpy(wire, good, sizeof(good));
-        wire[8U + i * 25U] = SF32LB52_BRIDGE_BUTTON_COUNT;
+        pair = (uint16_t)(wire[byte] | ((uint16_t)wire[byte + 1U] << 8U));
+        pair |= (uint16_t)(31U << shift);
+        wire[byte] = (uint8_t)pair;
+        wire[byte + 1U] = (uint8_t)(pair >> 8U);
         repair_wire_crc(wire, sizeof(good));
         decoded = sentinel;
         assert(!sf32lb52_bridge_mapping_routes_deserialize(wire, sizeof(good), &decoded));
         assert(memcmp(&sentinel, &decoded, sizeof(decoded)) == 0);
         decoded = routes;
-        sf32lb52_bridge_mapping_route(&decoded, sources[i / 2U], outputs[i % 2U])
+        sf32lb52_bridge_mapping_route(&decoded, sources[i / 3U], outputs[i % 3U])
             ->source_for_target[0] = SF32LB52_BRIDGE_BUTTON_COUNT;
         assert(sf32lb52_bridge_mapping_routes_serialize(&decoded, wire, sizeof(wire)) == 0U);
     }
@@ -458,7 +472,7 @@ static void test_four_route_wire_and_commands(void)
     assert(sf32lb52_bridge_mapping_output_for_role(SF32LB52_BRIDGE_ROLE_DUALSENSE_EDGE) ==
            outputs[0]);
     assert(sf32lb52_bridge_mapping_output_for_role(SF32LB52_BRIDGE_ROLE_XBOX_360) ==
-           outputs[0]);
+           outputs[2]);
 }
 
 int main(void)

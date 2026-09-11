@@ -14,8 +14,9 @@ extern "C" {
 #define SF32LB52_BRIDGE_MAPPING_NONE UINT8_C(0xff)
 #define SF32LB52_BRIDGE_MAPPING_CONFIG_WIRE_SIZE 40U
 #define SF32LB52_BRIDGE_MAPPING_WIRE_SIZE 80U
-#define SF32LB52_BRIDGE_MAPPING_ROUTES_WIRE_SIZE 112U
-#define SF32LB52_BRIDGE_MAPPING_SCHEMA 3U
+#define SF32LB52_BRIDGE_MAPPING_ROUTES_V3_WIRE_SIZE 112U
+#define SF32LB52_BRIDGE_MAPPING_ROUTES_WIRE_SIZE 106U
+#define SF32LB52_BRIDGE_MAPPING_SCHEMA 4U
 
 typedef struct {
     uint8_t source_for_target[SF32LB52_BRIDGE_BUTTON_COUNT];
@@ -33,17 +34,24 @@ typedef struct {
     sf32lb52_bridge_mapping_config_t ns2pro;
 } sf32lb52_bridge_mapping_profiles_t;
 
+typedef struct {
+    sf32lb52_bridge_mapping_config_t ds5;
+    sf32lb52_bridge_mapping_config_t ns2pro;
+    sf32lb52_bridge_mapping_config_t xbox;
+} sf32lb52_bridge_mapping_outputs_t;
+
 /* Outer member = physical source; inner member = USB output.
  * The two-profile type and its v2 codec remain available for migration. */
 typedef struct {
-    sf32lb52_bridge_mapping_profiles_t ds5;
-    sf32lb52_bridge_mapping_profiles_t ns2pro;
+    sf32lb52_bridge_mapping_outputs_t ds5;
+    sf32lb52_bridge_mapping_outputs_t ns2pro;
 } sf32lb52_bridge_mapping_routes_t;
 
 typedef enum {
     SF32LB52_BRIDGE_MAPPING_OUTPUT_UNSPECIFIED = 0,
     SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5,
-    SF32LB52_BRIDGE_MAPPING_OUTPUT_NS2PRO
+    SF32LB52_BRIDGE_MAPPING_OUTPUT_NS2PRO,
+    SF32LB52_BRIDGE_MAPPING_OUTPUT_XBOX
 } sf32lb52_bridge_mapping_output_t;
 
 typedef enum {
@@ -134,9 +142,11 @@ size_t sf32lb52_bridge_mapping_routes_serialize(
 bool sf32lb52_bridge_mapping_routes_deserialize(
     const uint8_t *wire, size_t wire_len,
     sf32lb52_bridge_mapping_routes_t *routes);
+bool sf32lb52_bridge_mapping_routes_v3_deserialize(
+    const uint8_t *wire, size_t wire_len,
+    sf32lb52_bridge_mapping_routes_t *routes);
 
-/* Edge shares DS5 output. Xbox uses this compatibility route only; this does
- * not imply supported Xbox USB enumeration or a hardware-verified pair. */
+/* Edge shares the DS5 mapping route. Xbox has an independent route. */
 sf32lb52_bridge_mapping_output_t sf32lb52_bridge_mapping_output_for_role(
     sf32lb52_bridge_role_t role);
 const char *sf32lb52_bridge_mapping_output_name(

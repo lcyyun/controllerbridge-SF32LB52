@@ -8,6 +8,7 @@
 #define V1_KEY "sf32_map_v1"
 #define V2_KEY "sf32_map_v2"
 #define V3_KEY "sf32_map_v3"
+#define V4_KEY "sf32_map_v4"
 
 static sf32lb52_bridge_mapping_profiles_t custom_profiles(void)
 {
@@ -66,6 +67,35 @@ static void seed_v2(void)
     fake_nvds_seed(V2_KEY, wire, sizeof(wire));
 }
 
+static void make_v3(uint8_t wire[SF32LB52_BRIDGE_MAPPING_ROUTES_V3_WIRE_SIZE])
+{
+    sf32lb52_bridge_mapping_routes_t routes = custom_routes();
+    uint32_t crc = UINT32_C(0xffffffff);
+    size_t i;
+    unsigned int bit;
+
+    memset(wire, 0, SF32LB52_BRIDGE_MAPPING_ROUTES_V3_WIRE_SIZE);
+    memcpy(wire, "SFM1", 4U);
+    wire[4] = 3U;
+    wire[5] = 112U;
+    wire[6] = 25U;
+    wire[7] = 4U;
+    memcpy(wire + 8U, routes.ds5.ds5.source_for_target, 25U);
+    memcpy(wire + 33U, routes.ds5.ns2pro.source_for_target, 25U);
+    memcpy(wire + 58U, routes.ns2pro.ds5.source_for_target, 25U);
+    memcpy(wire + 83U, routes.ns2pro.ns2pro.source_for_target, 25U);
+    for (i = 0U; i < 108U; ++i) {
+        crc ^= wire[i];
+        for (bit = 0U; bit < 8U; ++bit) {
+            crc = (crc >> 1U) ^ ((crc & 1U) ? UINT32_C(0xedb88320) : 0U);
+        }
+    }
+    crc = ~crc;
+    for (i = 0U; i < 4U; ++i) {
+        wire[108U + i] = (uint8_t)(crc >> (i * 8U));
+    }
+}
+
 static void test_migration_and_precedence(void)
 {
     sf32lb52_bridge_mapping_profiles_t profiles = custom_profiles();
@@ -95,9 +125,21 @@ static void test_migration_and_precedence(void)
     assert(memcmp(&loaded.ns2pro.ns2pro, &profiles.ns2pro, sizeof(profiles.ds5)) == 0);
     assert(fake_nvds_write_count() == 0U); /* Migration never writes on boot. */
 
+    {
+        uint8_t v3[SF32LB52_BRIDGE_MAPPING_ROUTES_V3_WIRE_SIZE];
+        make_v3(v3);
+        fake_nvds_seed(V3_KEY, v3, sizeof(v3));
+        assert(sf32lb52_bridge_mapping_store_load(&loaded));
+        expected.ds5.xbox = expected.ds5.ds5;
+        expected.ns2pro.xbox = expected.ns2pro.ds5;
+        assert(memcmp(&loaded, &expected, sizeof(loaded)) == 0);
+        assert(fake_nvds_write_count() == 0U);
+        expected.ds5.xbox.source_for_target[0] = SF32LB52_BRIDGE_MAPPING_NONE;
+        expected.ns2pro.xbox.source_for_target[1] = SF32LB52_BRIDGE_BUTTON_NORTH;
+    }
     assert(sf32lb52_bridge_mapping_store_save(&expected));
-    assert(sifli_nvds_flash_read(V3_KEY, wire, sizeof(wire)) == sizeof(wire));
-    assert(wire[4] == 3U && wire[5] == 112U && wire[7] == 4U);
+    assert(sifli_nvds_flash_read(V4_KEY, wire, sizeof(wire)) == sizeof(wire));
+    assert(wire[4] == 4U && wire[5] == 106U && wire[7] == 6U);
     fake_nvds_reboot();
     memset(&loaded, 0xa5, sizeof(loaded));
     assert(sf32lb52_bridge_mapping_store_load(&loaded));
@@ -112,7 +154,7 @@ static void assert_corruption_rejected(const char *key,
                                       const uint8_t *good, size_t len)
 {
     sf32lb52_bridge_mapping_routes_t loaded;
-    uint8_t bad[SF32LB52_BRIDGE_MAPPING_ROUTES_WIRE_SIZE + 1U];
+    uint8_t bad[SF32LB52_BRIDGE_MAPPING_ROUTES_V3_WIRE_SIZE + 1U];
     size_t i;
 
     assert(len != 0U);
@@ -140,7 +182,7 @@ static void test_corrupt_records_do_not_resurrect_older_maps(void)
 {
     sf32lb52_bridge_mapping_profiles_t profiles = custom_profiles();
     sf32lb52_bridge_mapping_routes_t routes = custom_routes();
-    uint8_t wire[SF32LB52_BRIDGE_MAPPING_ROUTES_WIRE_SIZE];
+    uint8_t wire[SF32LB52_BRIDGE_MAPPING_ROUTES_V3_WIRE_SIZE];
     size_t len;
 
     fake_nvds_clear();
@@ -153,8 +195,15 @@ static void test_corrupt_records_do_not_resurrect_older_maps(void)
     fake_nvds_clear();
     seed_legacy();
     seed_v2();
+    make_v3(wire);
+    assert_corruption_rejected(V3_KEY, wire, sizeof(wire));
+    fake_nvds_clear();
+    seed_legacy();
+    seed_v2();
+    make_v3(wire);
+    fake_nvds_seed(V3_KEY, wire, sizeof(wire));
     len = sf32lb52_bridge_mapping_routes_serialize(&routes, wire, sizeof(wire));
-    assert_corruption_rejected(V3_KEY, wire, len);
+    assert_corruption_rejected(V4_KEY, wire, len);
 }
 
 static void test_failed_save_and_reset(void)
@@ -237,6 +286,6 @@ int main(void)
     test_corrupt_records_do_not_resurrect_older_maps();
     test_failed_save_and_reset();
     test_init_failure_and_invalid_save();
-    puts("OK mapping v1/v2 migration, v3 NVDS precedence/CRC/reset/failure tests");
+    puts("OK mapping migration, v4 NVDS precedence/CRC/reset/failure tests");
     return 0;
 }
