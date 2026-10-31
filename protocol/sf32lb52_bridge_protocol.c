@@ -388,8 +388,17 @@ int sf32lb52_bridge_state_from_ns2_snapshot(
         out->motion_valid = 1U;
     }
 
-    out->sensor_timestamp = sensor_timestamp;
-    out->timestamp_valid = 1U;
+    /* FD2 starts with the controller's little-endian sample timestamp.
+     * The legacy format starts with its 8-bit report counter. Host receive
+     * time is not evidence that a repeated source packet is a fresh sample. */
+    (void)sensor_timestamp;
+    if (snapshot->kind == SF32LB52_NS2_NOTIFY_KIND_FD2 && snapshot->raw_len >= 4U) {
+        out->sensor_timestamp = read_le32(snapshot->raw);
+        out->timestamp_valid = 1U;
+    } else if (snapshot->kind == SF32LB52_NS2_NOTIFY_KIND_LEGACY && snapshot->raw_len >= 1U) {
+        out->source_sequence = snapshot->raw[0];
+        out->source_sequence_valid = 1U;
+    }
     out->valid = 1U;
     return 0;
 }
@@ -473,6 +482,8 @@ int sf32lb52_bridge_parse_ds5_usb_input(const uint8_t *report,
     out->motion_valid = 1U;
     out->sensor_timestamp = read_le32(body + DS5_SENSOR_TIMESTAMP_OFFSET);
     out->timestamp_valid = 1U;
+    out->source_sequence = body[6];
+    out->source_sequence_valid = 1U;
 
     battery_level = (uint8_t)(body[DS5_BATTERY_OFFSET] & 0x0fU);
     if (battery_level <= 10U) {

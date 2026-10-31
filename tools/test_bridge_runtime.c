@@ -898,8 +898,83 @@ static void test_migrated_runtime_and_first_route_save(void)
 }
 #endif
 
+static void test_ns2_minus_sony_default_and_override(void)
+{
+    sf32lb52_bridge_input_state_t input = make_input(
+        SF32LB52_BRIDGE_INPUT_SOURCE_NS2PRO_BLE, SF32LB52_BRIDGE_BUTTON_BACK);
+    uint8_t report[64];
+    assert(sf32lb52_bridge_runtime_accept_input(&input, 10U));
+    assert(sf32lb52_bridge_runtime_set_role(SF32LB52_BRIDGE_ROLE_DUALSENSE, false));
+    assert(sf32lb52_bridge_runtime_make_input_report(11U, report, sizeof(report)) == 64U);
+    assert((report[10] & 2U) != 0U && (report[9] & 0x10U) == 0U);
+    assert(sf32lb52_bridge_runtime_set_role(SF32LB52_BRIDGE_ROLE_DUALSENSE_EDGE, false));
+    assert(sf32lb52_bridge_runtime_make_input_report(12U, report, sizeof(report)) == 64U);
+    assert((report[10] & 2U) != 0U && (report[9] & 0x10U) == 0U);
+    assert(sf32lb52_bridge_runtime_set_route_button_mapping(
+        SF32LB52_BRIDGE_MAPPING_PROFILE_NS2PRO, SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5,
+        SF32LB52_BRIDGE_BUTTON_TOUCHPAD, SF32LB52_BRIDGE_MAPPING_NONE));
+    assert(sf32lb52_bridge_runtime_make_input_report(13U, report, sizeof(report)) == 64U);
+    assert((report[10] & 2U) == 0U && (report[9] & 0x10U) != 0U);
+    assert(sf32lb52_bridge_runtime_set_role(SF32LB52_BRIDGE_ROLE_XBOX_360, false));
+    assert(sf32lb52_bridge_runtime_make_input_report(14U, report, sizeof(report)) == 20U);
+    assert((report[2] & 0x20U) != 0U);
+}
+
+static void test_physical_frame_identity_and_expiry(void)
+{
+    sf32lb52_bridge_input_state_t input = make_input(
+        SF32LB52_BRIDGE_INPUT_SOURCE_DUALSENSE_BT,
+        SF32LB52_BRIDGE_BUTTON_SOUTH);
+    sf32lb52_bridge_input_state_t live;
+    sf32lb52_bridge_runtime_status_t status;
+    uint8_t report[64];
+    input.timestamp_valid = 1U;
+    input.sensor_timestamp = UINT32_MAX;
+    input.source_sequence_valid = 1U;
+    input.source_sequence = 255U;
+    input.battery_valid = 1U;
+    input.battery_percent = 70U;
+    assert(sf32lb52_bridge_runtime_accept_input(&input, 10U));
+    assert(!sf32lb52_bridge_runtime_accept_input(&input, 20U));
+    input.buttons = 0U; /* Controls changing is not a source identity. */
+    assert(!sf32lb52_bridge_runtime_accept_input(&input, 30U));
+    sf32lb52_bridge_runtime_get_status(&status);
+    assert(status.unique_input_reports == 1U && status.duplicate_input_reports == 2U);
+    assert(status.last_input_ms == 10U && status.input_rate_supported);
+    input.sensor_timestamp = 0U; /* Timestamp and sequence wrap are fresh. */
+    input.source_sequence = 0U;
+    assert(sf32lb52_bridge_runtime_accept_input(&input, 40U));
+    input.source_sequence = 1U; /* Same controls/timestamp, new sequence. */
+    assert(sf32lb52_bridge_runtime_accept_input(&input, 50U));
+    (void)sf32lb52_bridge_runtime_make_input_report(51U, report, sizeof(report));
+    (void)sf32lb52_bridge_runtime_make_input_report(52U, report, sizeof(report));
+    sf32lb52_bridge_runtime_get_status(&status);
+    assert(status.unique_input_reports == 3U); /* USB repeats never count. */
+    sf32lb52_bridge_runtime_poll(301U);
+    assert(!sf32lb52_bridge_runtime_accept_input(&input, 302U));
+    assert(sf32lb52_bridge_runtime_get_input_state(&live));
+    assert(!live.valid && !live.battery_valid && live.buttons == 0U);
+    sf32lb52_bridge_runtime_release_input(input.source, 303U);
+    assert(sf32lb52_bridge_runtime_accept_input(&input, 304U)); /* New connection epoch. */
+    sf32lb52_bridge_runtime_release_input(input.source, 305U);
+    input.source = SF32LB52_BRIDGE_INPUT_SOURCE_NS2PRO_BLE;
+    assert(sf32lb52_bridge_runtime_accept_input(&input, 306U)); /* Source changes. */
+    sf32lb52_bridge_runtime_get_status(&status);
+    assert(status.unique_input_reports == 5U);
+    assert(status.input_epoch == 3U);
+    sf32lb52_bridge_runtime_release_input(input.source, 307U);
+    input.timestamp_valid = input.source_sequence_valid = 0U;
+    assert(sf32lb52_bridge_runtime_accept_input(&input, 308U));
+    sf32lb52_bridge_runtime_get_status(&status);
+    assert(!status.input_rate_supported && status.unique_input_reports == 5U);
+}
+
 int main(void)
 {
+    reset_to_defaults();
+    test_ns2_minus_sony_default_and_override();
+    reset_to_defaults();
+    test_physical_frame_identity_and_expiry();
     reset_to_defaults();
     test_single_active_and_stale_neutral();
     reset_to_defaults();

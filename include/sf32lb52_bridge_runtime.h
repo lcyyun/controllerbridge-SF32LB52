@@ -38,6 +38,10 @@ typedef struct {
     uint32_t active_since_ms;
     uint32_t last_input_ms;
     uint32_t accepted_reports;
+    uint32_t unique_input_reports;
+    uint32_t input_epoch;
+    uint32_t duplicate_input_reports;
+    uint8_t input_rate_supported;
     uint32_t ignored_reports;
     uint32_t source_switches;
     uint32_t neutral_reports;

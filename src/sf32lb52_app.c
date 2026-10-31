@@ -1283,6 +1283,30 @@ int sf32lb52_app_main(void)
         uint8_t want_ds5_auto_reconnect;
         size_t report_len;
 
+        now_ms = platform_millis();
+        sf32lb52_bridge_runtime_get_config(&config);
+        ble_gatt_get_status(&ns2_status);
+        /* Do not page Classic while the saved NS2 is reconnecting. Apply
+         * this before Classic poll so a due retry cannot race BLE wake. */
+        want_ds5_auto_reconnect =
+            (uint8_t)(config.auto_connect &&
+                      !ns2_status.connected && !ns2_status.connecting &&
+                      !(ns2_status.scanning && config.last_active_input ==
+                          SF32LB52_BRIDGE_INPUT_SOURCE_NS2PRO_BLE) &&
+                      config.input_preference !=
+                          SF32LB52_BRIDGE_INPUT_PREFERENCE_NS2PRO &&
+                      (config.input_preference ==
+                           SF32LB52_BRIDGE_INPUT_PREFERENCE_DUALSENSE ||
+                       ds5_started ||
+                       (uint32_t)(now_ms - boot_ms) >=
+                           SF32LB52_BLE_START_DELAY_MS));
+        if (want_ds5_auto_reconnect != ds5_auto_reconnect_applied) {
+            if (ds5_classic_set_auto_reconnect(
+                    want_ds5_auto_reconnect != 0U) == DS5_CLASSIC_OK) {
+                ds5_auto_reconnect_applied = want_ds5_auto_reconnect;
+            }
+        }
+
         bridge_process_audio_haptics();
         ns2_profile_poll();
         ds5_classic_poll();
@@ -1316,22 +1340,6 @@ int sf32lb52_app_main(void)
                            0,
                            sizeof(observed_ds5_address));
                 }
-            }
-        }
-
-        want_ds5_auto_reconnect =
-            (uint8_t)(config.auto_connect &&
-                      config.input_preference !=
-                          SF32LB52_BRIDGE_INPUT_PREFERENCE_NS2PRO &&
-                      (config.input_preference ==
-                           SF32LB52_BRIDGE_INPUT_PREFERENCE_DUALSENSE ||
-                       ds5_started ||
-                       (uint32_t)(now_ms - boot_ms) >=
-                           SF32LB52_BLE_START_DELAY_MS));
-        if (want_ds5_auto_reconnect != ds5_auto_reconnect_applied) {
-            if (ds5_classic_set_auto_reconnect(
-                    want_ds5_auto_reconnect != 0U) == DS5_CLASSIC_OK) {
-                ds5_auto_reconnect_applied = want_ds5_auto_reconnect;
             }
         }
 

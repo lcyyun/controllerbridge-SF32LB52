@@ -6,40 +6,42 @@
 #include <assert.h>
 
 static Sf32lb52UsbRole actual_role = Sf32lb52UsbRoleNintendo;
+static bool allow_status;
+static uint32_t test_time;
 
 Sf32lb52UsbRole sf32lb52_usb_get_role(void)
 {
     return actual_role;
 }
 
-uint32_t platform_millis(void) { assert(!"unexpected clock access"); return 0U; }
+uint32_t platform_millis(void) { assert(allow_status); return test_time; }
 uint32_t platform_micros(void) { assert(!"unexpected clock access"); return 0U; }
 
 void ble_gatt_get_status(ble_gatt_status_t *status)
 {
-    (void)status;
-    assert(!"unexpected BLE access");
+    assert(allow_status);
+    memset(status, 0, sizeof(*status));
 }
 
 void ds5_classic_get_status(ds5_classic_status_t *status)
 {
-    (void)status;
-    assert(!"unexpected Bluetooth access");
+    assert(allow_status);
+    memset(status, 0xff, sizeof(*status)); /* Max counter widths. */
 }
 
 void sf32lb52_usb_get_status(Sf32lb52UsbDeviceStatus *status)
 {
-    (void)status;
-    assert(!"unexpected USB status access");
+    assert(allow_status);
+    memset(status, 0, sizeof(*status));
 }
 
 bool sf32lb52_usb_get_role_capabilities(Sf32lb52UsbRole role,
                                        Sf32lb52UsbRoleCapabilities *out)
 {
     (void)role;
-    (void)out;
-    assert(!"unexpected USB capability access");
-    return false;
+    assert(allow_status);
+    memset(out, 0, sizeof(*out));
+    return true;
 }
 
 int ble_gatt_write_handle(uint16_t handle, const uint8_t *data, size_t len)
@@ -210,11 +212,62 @@ static void test_route_dirty_replies(void)
         SF32LB52_BRIDGE_MAPPING_OUTPUT_DS5, NULL));
 }
 
+static const char *queued_json(void)
+{
+    static char reply[SF32LB52_NS2_FEATURE_REPLY_CAPACITY + 1U];
+    sf32lb52_ns2_feature_reply_t *q = &g_feature_replies[g_feature_reply_index];
+    assert(q->length < SF32LB52_NS2_FEATURE_REPLY_CAPACITY);
+    memcpy(reply, q->bytes, q->length);
+    reply[q->length] = 0;
+    assert(q->length && reply[q->length - 1U] == '}');
+    return reply;
+}
+
+static void test_physical_status_contract(void)
+{
+    sf32lb52_bridge_input_state_t input;
+    const char *json;
+    reset_routes();
+    allow_status = true;
+    sf32lb52_bridge_input_state_reset(&input);
+    input.valid = 1U;
+    input.source = SF32LB52_BRIDGE_INPUT_SOURCE_DUALSENSE_BT;
+    input.timestamp_valid = 1U;
+    input.sensor_timestamp = 123U;
+    input.buttons = 1U;
+    input.battery_valid = 1U;
+    input.battery_percent = 70U;
+    assert(sf32lb52_bridge_runtime_accept_input(&input, 1U));
+    test_time = 10U;
+    queue_bridge_status_json();
+    json = queued_json();
+    assert(strstr(json, "\"unique_input_reports\":1"));
+    assert(strstr(json, "\"input_rate_time_ms\":10"));
+    assert(strstr(json, "\"input_rate_supported\":true"));
+    assert(strstr(json, "\"input_battery_percent\":70"));
+    assert(strstr(json, "\"firmware_version\":\"" SF32LB52_FIRMWARE_VERSION "\""));
+    assert(!sf32lb52_bridge_runtime_accept_input(&input, 251U));
+    test_time = 252U;
+    sf32lb52_bridge_runtime_poll(test_time);
+    queue_bridge_status_json();
+    json = queued_json();
+    assert(strstr(json, "\"duplicate_input_reports\":1"));
+    assert(strstr(json, "\"input_stale\":true"));
+    assert(strstr(json, "\"input_battery_percent\":-1"));
+    queue_bridge_input_json();
+    json = queued_json();
+    assert(strstr(json, "\"valid\":false"));
+    assert(strstr(json, "\"buttons\":0"));
+    assert(strstr(json, "\"battery_valid\":false"));
+    allow_status = false;
+}
+
 int main(void)
 {
     test_explicit_routes();
     test_legacy_uses_actual_usb();
     test_route_dirty_replies();
+    test_physical_status_contract();
     puts("OK real mapping command handler: four routes, legacy role resolution, JSON and saves");
     return 0;
 }

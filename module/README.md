@@ -17,14 +17,9 @@ Run the applicable command from the firmware repository root:
 # SF32LB52: explicit directory containing sftool_param.json and its referenced files.
 pwsh -NoProfile -File ./module/package.ps1 -BuildDirectory C:\build\sf32-release
 
-# Pico 2 W: explicit completed UF2; its packaged filename comes from module.json.
-pwsh -NoProfile -File ./module/package.ps1 -Uf2Path C:\build\pico-release.uf2
-
-# ESP32-S3: metadata-only, with flashMethod None and no firmware artifacts.
-pwsh -NoProfile -File ./module/package.ps1
 ```
 
-Each repository's entry point accepts only its applicable arguments. Absolute
+This repository's entry point accepts only the SF32 build directory. Absolute
 script paths also work from another working directory. Relative input paths
 are resolved against the caller's current directory, not the script directory.
 
@@ -33,12 +28,7 @@ are resolved against the caller's current directory, not the script directory.
 - SF32: copies `sftool_param.json` plus every file in `write_flash.files`,
   preserving paths relative to that JSON file. Unreferenced build outputs
   are not included. Empty lists, missing files and duplicate paths are rejected.
-- Pico: copies the explicit UF2 unchanged to the manifest's artifact path.
-  UF2 length and every block's magic values are checked; this is not a
-  firmware compatibility or bootability test.
-- ESP32-S3: packages metadata only. It does not infer ESP images or enable
-  automatic flashing.
-- All repos: copy root `LICENSE`, `NOTICE.md`, and all files under `LICENSES/`.
+- Copy root `LICENSE`, `NOTICE.md`, and all files under `LICENSES/`.
   Install all applicable SDK/vendor license notices in the repository before
   release packaging. In particular, SF32 SDK license preparation is separate
   from this packaging step; the script does not certify license completeness.

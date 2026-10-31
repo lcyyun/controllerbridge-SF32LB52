@@ -27,6 +27,8 @@
 #define BLE_GATT_OPERATION_TIMEOUT_MS 800U
 #define BLE_GATT_CONTROL_EVENT_COUNT 16U
 #define BLE_GATT_CONTROL_EVENT_BUDGET 16U
+#define BLE_GATT_CONNECT_TIMEOUT_MS 7000U
+#define BLE_GATT_SCAN_RETRY_MS 250U
 
 typedef enum BleGattStage {
     BLE_GATT_STAGE_IDLE = 0,
@@ -69,6 +71,7 @@ typedef enum BleGattControlEventType {
     BLE_GATT_CONTROL_SCAN_START_FAILED,
     BLE_GATT_CONTROL_SCAN_STOPPED,
     BLE_GATT_CONTROL_CONNECT_FAILED,
+    BLE_GATT_CONTROL_CONNECT_STOPPED,
     BLE_GATT_CONTROL_CONNECTED,
     BLE_GATT_CONTROL_DISCONNECTED,
     BLE_GATT_CONTROL_MTU,
@@ -120,6 +123,7 @@ static uint32_t g_init_ack_deadline_ms;
 static uint16_t g_registration_start_handle;
 static uint16_t g_registration_end_handle;
 static uint32_t g_scan_retry_deadline_ms;
+static uint32_t g_connect_deadline_ms;
 static uint8_t g_remote_registration_pending;
 static uint8_t g_cccd_write_pending;
 static BleGattRecoveryAction g_cccd_write_action;
@@ -780,7 +784,8 @@ static int ble_gatt_connect_candidate(const ble_gap_addr_t *addr)
     ble_gap_connection_create_param_t conn_param;
     uint8_t ret;
 
-    if (addr == 0 || g_status.connecting || g_status.connected) {
+    if (addr == 0 || !g_scan_requested || !g_status.powered ||
+        g_status.connecting || g_status.connected) {
         return -1;
     }
 
@@ -799,7 +804,16 @@ static int ble_gatt_connect_candidate(const ble_gap_addr_t *addr)
     memcpy(&conn_param.peer_addr, addr, sizeof(conn_param.peer_addr));
 
     if (g_status.scanning) {
-        (void)ble_gap_scan_stop();
+        ret = ble_gap_scan_stop();
+        if (ret != HL_ERR_NO_ERROR) {
+            /* A failed stop must not be followed by a concurrent initiation.
+             * Keep the selected advert queued; duplicate filtering may mean
+             * the controller never reports that same advert again. */
+            g_candidate_address = *addr;
+            g_candidate_pending = 1U;
+            g_scan_retry_deadline_ms = platform_millis() + BLE_GATT_SCAN_RETRY_MS;
+            return -1;
+        }
         g_status.scanning = 0U;
     }
 
@@ -807,6 +821,7 @@ static int ble_gatt_connect_candidate(const ble_gap_addr_t *addr)
     if (ret != HL_ERR_NO_ERROR) {
         g_status.connect_failures++;
         g_status.last_connect_status = ret;
+        g_scan_retry_deadline_ms = platform_millis() + BLE_GATT_SCAN_RETRY_MS;
         platform_log("ble", "connect request failed ret=%u", (unsigned int)ret);
         return -1;
     }
@@ -814,6 +829,14 @@ static int ble_gatt_connect_candidate(const ble_gap_addr_t *addr)
     g_status.connect_attempts++;
     g_status.last_connect_status = 0U;
     g_status.connecting = 1U;
+    g_connect_deadline_ms = platform_millis() + BLE_GATT_CONNECT_TIMEOUT_MS;
+    /* Only a peer actually selected for connection may be persisted by the
+     * application. Unrelated advertisements must not overwrite this address. */
+    g_status.last_candidate_valid = 0U;
+    g_status.last_candidate_addr_type = addr->addr_type;
+    memcpy(g_status.last_candidate_addr, addr->addr.addr,
+           sizeof(g_status.last_candidate_addr));
+    g_status.last_candidate_valid = 1U;
     platform_log("ble", "connect requested type=%u addr=%02x:%02x:%02x:%02x:%02x:%02x",
                  (unsigned int)addr->addr_type,
                  (unsigned int)addr->addr.addr[5],
@@ -829,6 +852,11 @@ static int ble_gatt_start_scan_now(void)
 {
     ble_gap_scan_start_t scan_param;
     uint8_t ret;
+
+    if (!g_scan_requested || !g_status.powered || g_status.connected ||
+        g_status.connecting || g_status.scanning) {
+        return 0;
+    }
 
     memset(&scan_param, 0, sizeof(scan_param));
     scan_param.own_addr_type = GAPM_STATIC_ADDR;
@@ -857,6 +885,7 @@ static void ble_gatt_on_connected(uint8_t conn_idx)
     rt_base_t level;
 
     ble_gatt_recovery_clear();
+    g_connect_deadline_ms = 0U;
     level = ble_gatt_critical_enter();
     g_status.connected = 0U;
     g_status.connecting = 0U;
@@ -886,6 +915,12 @@ static void ble_gatt_on_connected(uint8_t conn_idx)
     g_status.conn_idx = conn_idx;
     g_status.connected = 1U;
     ble_gatt_critical_exit(level);
+    /* Stop/forget or a source switch can race a successful connection event.
+     * Reject that late link in task context, without starting GATT setup. */
+    if (!g_scan_requested) {
+        ble_gatt_recovery_disconnect_now("connection completed after stop");
+        return;
+    }
     (void)sibles_exchange_mtu(conn_idx);
     if (sibles_search_service(conn_idx,
                               NS2_GATT_UUID128_LEN,
@@ -907,6 +942,8 @@ static void ble_gatt_on_disconnected(uint8_t conn_idx, uint8_t reason)
         /* Publish disconnected before invalidating conn_idx. */
         g_status.connected = 0U;
         g_status.connecting = 0U;
+        g_candidate_pending = 0U;
+        g_connect_deadline_ms = 0U;
     }
     ble_gatt_critical_exit(level);
 
@@ -943,8 +980,10 @@ static void ble_gatt_on_disconnected(uint8_t conn_idx, uint8_t reason)
     platform_log("ble", "disconnected conn_idx=%u reason=%u",
                  (unsigned int)conn_idx,
                  (unsigned int)reason);
-    if (g_scan_requested) {
-        (void)ble_gatt_start_scan_now();
+    if (matches && g_scan_requested) {
+        /* Give the controller time to retire its old initiation activity.
+         * poll() owns every retry, including a rejected scan-start request. */
+        g_scan_retry_deadline_ms = platform_millis() + BLE_GATT_SCAN_RETRY_MS;
     }
 }
 
@@ -957,6 +996,11 @@ static void ble_gatt_process_candidate(void)
     uint8_t can_connect;
 
     level = ble_gatt_critical_enter();
+    if (g_candidate_pending && g_scan_retry_deadline_ms != 0U &&
+        !ble_gatt_time_reached(platform_millis(), g_scan_retry_deadline_ms)) {
+        ble_gatt_critical_exit(level);
+        return;
+    }
     pending = g_candidate_pending;
     if (pending != 0U) {
         address = g_candidate_address;
@@ -966,7 +1010,11 @@ static void ble_gatt_process_candidate(void)
         memset(&address, 0, sizeof(address));
         rssi = 0;
     }
-    can_connect = g_status.connected == 0U && g_status.connecting == 0U;
+    can_connect = g_scan_requested && g_status.powered &&
+        g_status.connected == 0U && g_status.connecting == 0U &&
+        (!g_target_valid ||
+         (g_target_address.addr_type == address.addr_type &&
+          memcmp(g_target_address.addr.addr, address.addr.addr, 6U) == 0));
     ble_gatt_critical_exit(level);
 
     if (pending == 0U || can_connect == 0U) {
@@ -1069,12 +1117,20 @@ static void ble_gatt_process_control_event(const BleGattControlEvent *event)
         break;
 
     case BLE_GATT_CONTROL_CONNECT_FAILED:
+    case BLE_GATT_CONTROL_CONNECT_STOPPED:
+        /* STOP_IND also terminates a timed-out initiation. Its successful
+         * start confirmation does not mean a physical link was established. */
+        if (g_status.connected || !g_status.connecting) {
+            break;
+        }
         level = ble_gatt_critical_enter();
         g_status.connecting = 0U;
+        g_connect_deadline_ms = 0U;
+        g_candidate_pending = 0U;
         g_status.connect_failures++;
         g_status.last_connect_status = event->status;
         ble_gatt_critical_exit(level);
-        g_scan_retry_deadline_ms = platform_millis() + 250U;
+        g_scan_retry_deadline_ms = platform_millis() + BLE_GATT_SCAN_RETRY_MS;
         platform_log("ble", "connect cnf failed status=%u",
                      (unsigned int)event->status);
         break;
@@ -1352,30 +1408,32 @@ int ble_gatt_sifli_event_handler(uint16_t event_id, uint8_t *data,
             ns2_gatt_adv_info_t adv_info;
             rt_base_t level;
             uint8_t target_match;
+            uint8_t report_type;
 
             ns2_gatt_parse_advertisement(ind->data, ind->length, &adv_info);
             level = ble_gatt_critical_enter();
             g_status.adv_reports++;
             g_status.last_rssi = ind->rssi;
+            report_type = ind->info & GAPM_REPORT_INFO_REPORT_TYPE_MASK;
+            /* A scan response is not connectable, even when its flags copy
+             * the corresponding advertisement. Directed wake adverts have
+             * no payload, so recognize the saved peer independently of AD. */
+            target_match = g_target_valid &&
+                g_target_address.addr_type == ind->addr.addr_type &&
+                memcmp(g_target_address.addr.addr, ind->addr.addr.addr, 6U) == 0;
             if (adv_info.candidate) {
                 g_status.ns2_candidates++;
-                g_status.last_candidate_valid = 0U;
-                g_status.last_candidate_addr_type = ind->addr.addr_type;
-                memcpy(g_status.last_candidate_addr,
-                       ind->addr.addr.addr,
-                       sizeof(g_status.last_candidate_addr));
-                /* Publish valid last, after the complete address is visible. */
-                g_status.last_candidate_valid = 1U;
-                target_match = !g_target_valid ||
-                    (g_target_address.addr_type == ind->addr.addr_type &&
-                     memcmp(g_target_address.addr.addr,
-                            ind->addr.addr.addr,
-                            sizeof(g_target_address.addr.addr)) == 0);
-                if (target_match) {
-                    g_candidate_address = ind->addr;
-                    g_candidate_rssi = ind->rssi;
-                    g_candidate_pending = 1U;
-                }
+            }
+            if (g_scan_requested && g_status.scanning &&
+                !g_status.connected && !g_status.connecting &&
+                !g_candidate_pending &&
+                (ind->info & GAPM_REPORT_INFO_CONN_ADV_BIT) != 0U &&
+                (report_type == GAPM_REPORT_TYPE_ADV_EXT ||
+                 report_type == GAPM_REPORT_TYPE_ADV_LEG) &&
+                (target_match || (!g_target_valid && adv_info.candidate))) {
+                g_candidate_address = ind->addr;
+                g_candidate_rssi = ind->rssi;
+                g_candidate_pending = 1U;
             }
             ble_gatt_critical_exit(level);
         }
@@ -1394,6 +1452,11 @@ int ble_gatt_sifli_event_handler(uint16_t event_id, uint8_t *data,
         }
         break;
     }
+
+    case BLE_GAP_CREATE_CONNECTION_STOP_IND:
+        ble_gatt_control_event_simple(BLE_GATT_CONTROL_CONNECT_STOPPED,
+                                      BLE_GATT_INVALID_CONN_IDX, 0U, 0U);
+        break;
 
     case CONNECTION_MANAGER_CONNCTED_IND:
     {
@@ -1523,17 +1586,30 @@ int ble_gatt_stop_scan(void)
     uint8_t ret = HL_ERR_NO_ERROR;
 
     g_scan_requested = 0U;
+    g_candidate_pending = 0U;
+    g_status.last_candidate_valid = 0U;
     g_scan_retry_deadline_ms = 0U;
     if (g_status.connecting) {
         ret = ble_gap_cancel_create_connection();
-        g_status.connecting = 0U;
+        if (ret == HL_ERR_NO_ERROR) {
+            g_status.connecting = 0U;
+            g_connect_deadline_ms = 0U;
+        } else {
+            /* Keep the outstanding initiation visible so poll can retry a
+             * rejected cancel instead of losing ownership of the radio. */
+            g_connect_deadline_ms = platform_millis() + 500U;
+        }
     }
     if (g_status.scanning) {
         uint8_t scan_ret = ble_gap_scan_stop();
         if (ret == HL_ERR_NO_ERROR) {
             ret = scan_ret;
         }
-        g_status.scanning = 0U;
+        if (scan_ret == HL_ERR_NO_ERROR) {
+            g_status.scanning = 0U;
+        } else {
+            g_scan_retry_deadline_ms = platform_millis() + 500U;
+        }
     }
     return ret == HL_ERR_NO_ERROR ? 0 : -1;
 #else
@@ -1548,6 +1624,10 @@ int ble_gatt_disconnect(uint8_t resume_scan)
     uint8_t ret;
 
     g_scan_requested = resume_scan ? 1U : 0U;
+    if (!resume_scan) {
+        g_candidate_pending = 0U;
+        g_status.last_candidate_valid = 0U;
+    }
     if (!g_status.connected || g_status.conn_idx == BLE_GATT_INVALID_CONN_IDX) {
         return resume_scan ? ble_gatt_start_scan() : ble_gatt_stop_scan();
     }
@@ -1572,6 +1652,7 @@ int ble_gatt_set_target(uint8_t address_type, const uint8_t address[6])
         rt_base_t level = ble_gatt_critical_enter();
         g_target_valid = 0U;
         g_status.target_valid = 0U;
+        g_candidate_pending = 0U;
         memset(&g_target_address, 0, sizeof(g_target_address));
         g_target_address.addr_type = address_type;
         memcpy(g_target_address.addr.addr, address,
@@ -1596,6 +1677,7 @@ void ble_gatt_clear_target(void)
     rt_base_t level = ble_gatt_critical_enter();
     g_target_valid = 0U;
     g_status.target_valid = 0U;
+    g_status.last_candidate_valid = 0U;
     memset(&g_target_address, 0, sizeof(g_target_address));
     g_status.target_addr_type = 0U;
     memset(g_status.target_addr, 0, sizeof(g_status.target_addr));
@@ -1603,6 +1685,7 @@ void ble_gatt_clear_target(void)
     ble_gatt_critical_exit(level);
 #else
     g_status.target_valid = 0U;
+    g_status.last_candidate_valid = 0U;
     g_status.target_addr_type = 0U;
     memset(g_status.target_addr, 0, sizeof(g_status.target_addr));
 #endif
@@ -1656,6 +1739,29 @@ void ble_gatt_poll(void)
     ble_gatt_process_candidate();
 
     now = platform_millis();
+    if (!g_scan_requested && g_status.scanning &&
+        ble_gatt_time_reached(now, g_scan_retry_deadline_ms)) {
+        if (ble_gap_scan_stop() == HL_ERR_NO_ERROR) {
+            g_status.scanning = 0U;
+            g_scan_retry_deadline_ms = 0U;
+        } else {
+            g_scan_retry_deadline_ms = now + 500U;
+        }
+    }
+    if (g_status.connecting &&
+        ble_gatt_time_reached(now, g_connect_deadline_ms)) {
+        /* A dropped STOP_IND must not permanently suppress scanning. SDK GAP
+         * commands are issued only by this task, never the event callback. */
+        if (ble_gap_cancel_create_connection() == HL_ERR_NO_ERROR) {
+            g_status.connecting = 0U;
+            g_candidate_pending = 0U;
+            g_status.connect_failures++;
+            g_connect_deadline_ms = 0U;
+            g_scan_retry_deadline_ms = now + BLE_GATT_SCAN_RETRY_MS;
+        } else {
+            g_connect_deadline_ms = now + 500U;
+        }
+    }
     if (g_status.connected == 0U ||
         g_status.conn_idx == BLE_GATT_INVALID_CONN_IDX) {
         if (g_scan_requested != 0U && g_status.powered != 0U &&

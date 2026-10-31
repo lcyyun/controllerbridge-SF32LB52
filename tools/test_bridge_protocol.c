@@ -122,6 +122,12 @@ static void test_ns2_snapshot_conversion(void)
     put_s16(snapshot.motion + 8U, -1234);
     put_s16(snapshot.motion + 10U, 42);
 
+    snapshot.kind = SF32LB52_NS2_NOTIFY_KIND_FD2;
+    snapshot.raw_len = 4U;
+    snapshot.raw[0] = 0x78U;
+    snapshot.raw[1] = 0x56U;
+    snapshot.raw[2] = 0x34U;
+    snapshot.raw[3] = 0x12U;
     assert(sf32lb52_bridge_state_from_ns2_snapshot(
                &snapshot, UINT32_C(0x12345678), &state) == 0);
     assert(state.valid == 1U);
@@ -150,6 +156,16 @@ static void test_ns2_snapshot_conversion(void)
     assert_button(&state, SF32LB52_BRIDGE_BUTTON_LEFT_PADDLE);
     assert_button(&state, SF32LB52_BRIDGE_BUTTON_RIGHT_PADDLE);
     assert_button(&state, SF32LB52_BRIDGE_BUTTON_C);
+    assert(sf32lb52_bridge_state_from_ns2_snapshot(&snapshot, 999U, &state) == 0);
+    assert(state.sensor_timestamp == UINT32_C(0x12345678)); /* Receive time is not identity. */
+    snapshot.kind = SF32LB52_NS2_NOTIFY_KIND_LEGACY;
+    snapshot.raw[0] = 255U;
+    assert(sf32lb52_bridge_state_from_ns2_snapshot(&snapshot, 1000U, &state) == 0);
+    assert(!state.timestamp_valid && state.source_sequence_valid);
+    assert(state.source_sequence == 255U);
+    snapshot.raw_len = 0U;
+    assert(sf32lb52_bridge_state_from_ns2_snapshot(&snapshot, 1001U, &state) == 0);
+    assert(!state.timestamp_valid && !state.source_sequence_valid);
 }
 
 static void make_ds5_body(uint8_t body[63])

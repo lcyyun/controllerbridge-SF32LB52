@@ -7,6 +7,7 @@
 #include "sf32lb52_manager_protocol.h"
 #include "sf32lb52_ns2_protocol.h"
 #include "sf32lb52_usb_device.h"
+#include "sf32lb52_firmware_version.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -855,8 +856,9 @@ static void handle_settings_command(const char *command)
 
 static void queue_bridge_status_json(void)
 {
-    char json[2048];
+    char json[SF32LB52_NS2_FEATURE_REPLY_CAPACITY];
     sf32lb52_bridge_runtime_status_t bridge;
+    sf32lb52_bridge_input_state_t source_input;
     sf32lb52_bridge_persisted_config_t config;
     sf32lb52_bridge_settings_status_t settings;
     ds5_classic_status_t ds5;
@@ -876,6 +878,8 @@ static void queue_bridge_status_json(void)
     memset(&usb, 0, sizeof(usb));
     memset(&usb_caps, 0, sizeof(usb_caps));
     sf32lb52_bridge_runtime_get_status(&bridge);
+    sf32lb52_bridge_input_state_reset(&source_input);
+    (void)sf32lb52_bridge_runtime_get_input_state(&source_input);
     sf32lb52_bridge_runtime_get_config(&config);
     sf32lb52_bridge_settings_get_status(&settings);
     ds5_classic_get_status(&ds5);
@@ -896,6 +900,8 @@ static void queue_bridge_status_json(void)
     snprintf(json,
              sizeof(json),
              "{\"ok\":true,\"profile\":\"%s\",\"manager\":\"bridge\","
+             "\"platform\":\"SF32LB52\",\"firmware_version\":\"%s\","
+             "\"firmware_build\":\"%s\",\"board\":\"%s\","
              "\"output_backend\":\"%s\",\"output_reports\":%lu,"
              "\"output_queued\":%lu,\"output_busy\":%lu,"
              "\"output_failures\":%lu,"
@@ -906,6 +912,10 @@ static void queue_bridge_status_json(void)
              "\"input_stale\":%s,\"imu_exposed\":%s,"
              "\"audio_capable\":%s,\"single_active\":true,"
              "\"accepted_reports\":%lu,\"ignored_reports\":%lu,"
+             "\"unique_input_reports\":%lu,\"duplicate_input_reports\":%lu,"
+             "\"input_epoch\":%lu,"
+             "\"input_rate_supported\":%s,\"input_rate_time_ms\":%lu,"
+             "\"input_battery_percent\":%d,"
              "\"source_switches\":%lu,\"role_switches\":%lu,"
              "\"usb_role_switches\":%lu,\"usb_role_switch_failures\":%lu,"
              "\"usb_output_reports\":%lu,"
@@ -928,6 +938,8 @@ static void queue_bridge_status_json(void)
              "\"ns2_saved\":%s,\"ns2_connected\":%s,"
              "\"ns2_scanning\":%s,\"ns2_notifications\":%lu}",
              sf32lb52_manager_profile_name(bridge.active_input),
+             SF32LB52_FIRMWARE_VERSION, SF32LB52_FIRMWARE_BUILD,
+             SF32LB52_FIRMWARE_BOARD,
              sf32lb52_manager_output_backend_name(bridge.active_input),
              (unsigned long)output_reports,
              (unsigned long)output_queued,
@@ -947,6 +959,13 @@ static void queue_bridge_status_json(void)
              usb_caps.audio_capable ? "true" : "false",
              (unsigned long)bridge.accepted_reports,
              (unsigned long)bridge.ignored_reports,
+             (unsigned long)bridge.unique_input_reports,
+             (unsigned long)bridge.duplicate_input_reports,
+             (unsigned long)bridge.input_epoch,
+             bridge.input_rate_supported ? "true" : "false",
+             (unsigned long)platform_millis(),
+             bridge.input_valid && !bridge.input_stale && source_input.battery_valid ?
+                 (int)source_input.battery_percent : -1,
              (unsigned long)bridge.source_switches,
              (unsigned long)bridge.role_switches,
              (unsigned long)usb.role_switches,

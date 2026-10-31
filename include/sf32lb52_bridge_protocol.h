@@ -104,6 +104,9 @@ typedef struct {
     int16_t accel[3];
     int16_t gyro[3];
     uint32_t sensor_timestamp;
+    /* Identity received from the physical controller, never a USB/UI tick. */
+    uint32_t source_sequence;
+    uint8_t source_sequence_valid;
     uint8_t battery_percent;
     uint8_t motion_valid;
     uint8_t timestamp_valid;

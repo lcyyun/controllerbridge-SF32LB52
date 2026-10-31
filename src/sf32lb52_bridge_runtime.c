@@ -429,10 +429,30 @@ bool sf32lb52_bridge_runtime_accept_input(
         g_runtime.status.active_input = state->source;
         g_runtime.status.active_since_ms = now_ms;
         g_runtime.status.source_switches++;
+        g_runtime.status.input_epoch++;
         g_runtime.config.last_active_input = state->source;
         mark_settings_dirty();
     }
 
+    /* Duplicate physical frames do not keep stale controls/battery alive.
+     * Equality (not ordering) permits natural source counter wrap. Releasing
+     * the link or changing source establishes a new identity epoch. */
+    g_runtime.status.input_rate_supported =
+        state->timestamp_valid || state->source_sequence_valid;
+    if (g_runtime.status.input_rate_supported && active == state->source &&
+        g_runtime.status.input_valid &&
+        g_runtime.input.timestamp_valid == state->timestamp_valid &&
+        g_runtime.input.source_sequence_valid == state->source_sequence_valid &&
+        (!state->timestamp_valid ||
+         g_runtime.input.sensor_timestamp == state->sensor_timestamp) &&
+        (!state->source_sequence_valid ||
+         g_runtime.input.source_sequence == state->source_sequence)) {
+        g_runtime.status.duplicate_input_reports++;
+        return false;
+    }
+    if (g_runtime.status.input_rate_supported) {
+        g_runtime.status.unique_input_reports++;
+    }
     write_input(state);
     g_runtime.status.input_valid = 1U;
     g_runtime.status.input_stale = 0U;
@@ -451,6 +471,7 @@ void sf32lb52_bridge_runtime_release_input(
     }
     g_runtime.status.active_input = SF32LB52_BRIDGE_INPUT_SOURCE_NONE;
     g_runtime.status.input_valid = 0U;
+    g_runtime.status.input_rate_supported = 0U;
     g_runtime.status.input_stale = 1U;
     g_runtime.status.last_input_ms = now_ms;
     set_neutral_input();
@@ -495,8 +516,25 @@ size_t sf32lb52_bridge_runtime_make_input_report(uint32_t now_ms,
         &mapping_profiles, mapping_profile_for_source(state.source),
         sf32lb52_bridge_mapping_output_for_role(role));
     if (mapping == 0 ||
-        !sf32lb52_bridge_mapping_apply(mapping, &state, &mapped) ||
-        sf32lb52_bridge_encode_input(role,
+        !sf32lb52_bridge_mapping_apply(mapping, &state, &mapped)) {
+        return 0U;
+    }
+    /* Match BL616: default NS2 Minus is Sony's in-game touchpad click.
+     * Explicit edits to either slot win; the stored six-route map remains
+     * canonical, and Nintendo/XInput and physical DS5 keep their meanings. */
+    if (state.source == SF32LB52_BRIDGE_INPUT_SOURCE_NS2PRO_BLE &&
+        (role == SF32LB52_BRIDGE_ROLE_DUALSENSE ||
+         role == SF32LB52_BRIDGE_ROLE_DUALSENSE_EDGE) &&
+        mapping->source_for_target[SF32LB52_BRIDGE_BUTTON_BACK] ==
+            SF32LB52_BRIDGE_BUTTON_BACK &&
+        mapping->source_for_target[SF32LB52_BRIDGE_BUTTON_TOUCHPAD] ==
+            SF32LB52_BRIDGE_BUTTON_TOUCHPAD) {
+        if (mapped.buttons & SF32LB52_BRIDGE_BUTTON_MASK(SF32LB52_BRIDGE_BUTTON_BACK)) {
+            mapped.buttons |= SF32LB52_BRIDGE_BUTTON_MASK(SF32LB52_BRIDGE_BUTTON_TOUCHPAD);
+        }
+        mapped.buttons &= ~SF32LB52_BRIDGE_BUTTON_MASK(SF32LB52_BRIDGE_BUTTON_BACK);
+    }
+    if (sf32lb52_bridge_encode_input(role,
                                      &mapped,
                                      g_runtime.report_sequence++,
                                      report,
@@ -691,7 +729,13 @@ bool sf32lb52_bridge_runtime_get_input_state(
     if (state == 0) {
         return false;
     }
-    return read_input(state);
+    if (!read_input(state)) {
+        return false;
+    }
+    if (!g_runtime.status.input_valid || g_runtime.status.input_stale) {
+        sf32lb52_bridge_input_state_reset(state);
+    }
+    return true;
 }
 
 sf32lb52_bridge_mapping_profile_t
