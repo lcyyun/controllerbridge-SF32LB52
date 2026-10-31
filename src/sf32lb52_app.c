@@ -1280,13 +1280,14 @@ int sf32lb52_app_main(void)
             ds5_auto_reconnect_applied != 0U);
     }
     if (bluetooth_start_result == 0 &&
-        config.auto_connect && prefer_ns2_at_boot) {
+        config.auto_connect && prefer_ns2_at_boot && config.ns2_address_valid) {
         if (ble_gatt_start_scan() == 0) {
             ble_started = 1U;
         } else {
             ble_start_retry_ms = boot_ms + 1000U;
         }
-    } else if (bluetooth_start_result == 0 && config.auto_connect) {
+    } else if (bluetooth_start_result == 0 && config.auto_connect &&
+               config.input_preference != SF32LB52_BRIDGE_INPUT_PREFERENCE_NS2PRO) {
         start_result = ds5_classic_connect_saved();
         if (start_result == DS5_CLASSIC_OK) {
             ds5_started = 1U;
@@ -1420,6 +1421,22 @@ int sf32lb52_app_main(void)
         }
         if (config.input_preference != observed_input_preference ||
             config.auto_connect != observed_auto_connect) {
+            if (!config.auto_connect && observed_auto_connect) {
+                /* Preserve a just-connected peer before stop_scan clears its
+                 * candidate, then withdraw only the future reconnect intent. */
+                if (ns2_status.connected && ns2_status.last_candidate_valid) {
+                    (void)sf32lb52_bridge_runtime_remember_ns2(
+                        ns2_status.last_candidate_addr_type,
+                        ns2_status.last_candidate_addr);
+                }
+                (void)ble_gatt_stop_scan();
+            } else if (config.auto_connect && !observed_auto_connect &&
+                       config.ns2_address_valid && ns2_status.connected &&
+                       config.input_preference !=
+                           SF32LB52_BRIDGE_INPUT_PREFERENCE_DUALSENSE) {
+                /* start_scan records intent but does not scan an active link. */
+                (void)ble_gatt_start_scan();
+            }
             if (config.auto_connect &&
                 config.input_preference !=
                     SF32LB52_BRIDGE_INPUT_PREFERENCE_NS2PRO &&
@@ -1518,10 +1535,15 @@ int sf32lb52_app_main(void)
                     ns2_status.last_candidate_addr_type,
                     ns2_status.last_candidate_addr);
             }
-        } else if (ns2_was_connected) {
+        } else if (!ns2_status.connected && ns2_was_connected) {
             ns2_input_epoch++;
             sf32lb52_bridge_runtime_release_input(
                 SF32LB52_BRIDGE_INPUT_SOURCE_NS2PRO_BLE, now_ms);
+        }
+        if (ns2_status.connected && !ns2_was_connected && !config.auto_connect) {
+            /* Explicit Pair/Connect still works with autoconnect off, but its
+             * completed scan must not arm an unintended future reconnect. */
+            (void)ble_gatt_stop_scan();
         }
         ds5_was_connected = ds5_status.connected;
         ns2_was_connected = ns2_status.connected;
@@ -1557,6 +1579,7 @@ int sf32lb52_app_main(void)
             pending_input_action == SF32LB52_APP_INPUT_ACTION_NONE &&
 #endif
             config.auto_connect &&
+            config.ns2_address_valid &&
             config.input_preference != SF32LB52_BRIDGE_INPUT_PREFERENCE_DUALSENSE &&
             (config.input_preference ==
                  SF32LB52_BRIDGE_INPUT_PREFERENCE_NS2PRO ||

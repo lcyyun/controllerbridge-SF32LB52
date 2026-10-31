@@ -44,7 +44,10 @@ NS2 peer, ignores canceled or foreign candidates, resumes scanning after a
 stopped/timed-out connect, and clears candidates during Forget. All GAP/GATT
 work remains deferred outside the Bluetooth callback. Automatic Classic paging
 is suspended while the saved NS2 is being recovered. These changes have adapter
-tests with a fake SDK; radio timing and controller sleep/wake still require
+tests with a fake SDK. Automatic scans require a saved peer; explicit Pair
+remains available without one. Disabling autoconnect preserves the active
+link and withdraws future scan/reconnect intent. Radio timing and controller
+sleep/wake still require
 the Nano hardware sequence below.
 
 For hardware acceptance, pair/save each controller and power-cycle the Nano;
