@@ -107,6 +107,9 @@ typedef struct {
     /* Identity received from the physical controller, never a USB/UI tick. */
     uint32_t source_sequence;
     uint8_t source_sequence_valid;
+    /* Cumulative physical callback count survives latest-state coalescing. */
+    uint32_t source_report_count;
+    uint8_t source_report_count_valid;
     uint8_t battery_percent;
     uint8_t motion_valid;
     uint8_t timestamp_valid;

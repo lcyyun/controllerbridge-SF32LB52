@@ -969,12 +969,35 @@ static void test_physical_frame_identity_and_expiry(void)
     assert(!status.input_rate_supported && status.unique_input_reports == 5U);
 }
 
+static void test_coalesced_callback_counts(void)
+{
+    sf32lb52_bridge_input_state_t input = make_input(
+        SF32LB52_BRIDGE_INPUT_SOURCE_DUALSENSE_BT, SF32LB52_BRIDGE_BUTTON_SOUTH);
+    sf32lb52_bridge_runtime_status_t status;
+    input.timestamp_valid = input.source_report_count_valid = 1U;
+    input.sensor_timestamp = 1U;
+    input.source_report_count = UINT32_MAX;
+    assert(sf32lb52_bridge_runtime_accept_input(&input, 1U));
+    input.sensor_timestamp = 3U;
+    input.source_report_count = 1U; /* Two fresh callbacks, one mailbox read. */
+    assert(sf32lb52_bridge_runtime_accept_input(&input, 3U));
+    assert(!sf32lb52_bridge_runtime_accept_input(&input, 10U));
+    sf32lb52_bridge_runtime_get_status(&status);
+    assert(status.unique_input_reports == 3U && status.last_input_ms == 3U);
+    input.source_report_count = 11U; /* Whole source-key wrap remains fresh. */
+    assert(sf32lb52_bridge_runtime_accept_input(&input, 13U));
+    sf32lb52_bridge_runtime_get_status(&status);
+    assert(status.unique_input_reports == 13U);
+}
+
 int main(void)
 {
     reset_to_defaults();
     test_ns2_minus_sony_default_and_override();
     reset_to_defaults();
     test_physical_frame_identity_and_expiry();
+    reset_to_defaults();
+    test_coalesced_callback_counts();
     reset_to_defaults();
     test_single_active_and_stale_neutral();
     reset_to_defaults();

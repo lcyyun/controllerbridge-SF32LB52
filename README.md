@@ -31,7 +31,8 @@ touchpad click like BL616; explicitly changing Back or Touchpad overrides this.
 `input_rate_time_ms` and `input_battery_percent`. Counts use physical NS2 FD2
 timestamps (legacy packet counter) or DualSense timestamp/sequence. Repeated
 packets do not refresh the input's 250 ms expiry; stationary fresh packets
-count. USB resend and manager polling do not count. Reconnecting or switching
+count. The callback's cumulative count also preserves fresh frames coalesced
+by the latest-state mailbox. USB resend and manager polling do not count. Reconnecting or switching
 source changes the epoch. `bridge input` returns neutral invalid state on
 disconnect or expiry. Physical battery is -1/invalid when unknown or stale;
 the USB persona's compatibility battery byte is never manager telemetry.
@@ -114,7 +115,7 @@ These scripts compile and run synthetic inputs; they do not open a device.
 `tools/webhid_smoke.html` and `tools/hid_feature_smoke.ps1` are separate,
 manual hardware tools.
 
-The standalone Nano build, descriptor validator and all 12 host-test scripts
+The standalone Nano build, descriptor validator and all 13 host-test scripts
 have passed using the pinned SDK and MinGW GCC. The build still emits SDK
 Bluetooth/Opus compiler warnings and RWX-segment linker warnings. This exact
 image has not been flashed or tested for pairing.

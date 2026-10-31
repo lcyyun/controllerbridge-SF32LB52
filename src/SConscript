@@ -1,4 +1,5 @@
 from building import *
+import subprocess
 
 cwd = GetCurrentDir()
 src = Glob("*.c")
@@ -14,6 +15,19 @@ path = [
     os.path.join(cwd, "..", "include"),
     os.path.join(cwd, "..", "boards", "SF32LB52_LCD_N16R8"),
 ]
+
+# Bind manager diagnostics to the source revision used by this actual build.
+# Archive builds remain explicit, and local edits cannot masquerade as a tag.
+try:
+    revision = subprocess.check_output(
+        ["git", "-C", cwd, "rev-parse", "--short=12", "HEAD"],
+        stderr=subprocess.DEVNULL).decode().strip()
+    if subprocess.call(["git", "-C", cwd, "diff", "--quiet", "HEAD"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL):
+        revision += "-dirty"
+except (OSError, subprocess.CalledProcessError):
+    revision = "source-archive"
+defines.append(("SF32LB52_FIRMWARE_BUILD", '\\"' + revision + '\\"'))
 
 group = DefineGroup("SF32LB52Port", src, CPPPATH=path, CPPDEFINES=defines, depend=[""])
 

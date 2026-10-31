@@ -408,6 +408,7 @@ bool sf32lb52_bridge_runtime_accept_input(
     uint32_t now_ms)
 {
     sf32lb52_bridge_input_source_t active;
+    uint32_t fresh_reports = 1U;
 
     if (state == 0 || !state->valid ||
         state->source == SF32LB52_BRIDGE_INPUT_SOURCE_NONE ||
@@ -439,7 +440,16 @@ bool sf32lb52_bridge_runtime_accept_input(
      * the link or changing source establishes a new identity epoch. */
     g_runtime.status.input_rate_supported =
         state->timestamp_valid || state->source_sequence_valid;
-    if (g_runtime.status.input_rate_supported && active == state->source &&
+    if (state->source_report_count_valid && g_runtime.input.source_report_count_valid &&
+        active == state->source && g_runtime.status.input_valid) {
+        /* Callback counters include fresh frames coalesced by the latest-state
+         * mailbox. Unsigned subtraction preserves uint32 counter wrap. */
+        fresh_reports = state->source_report_count - g_runtime.input.source_report_count;
+        if (fresh_reports == 0U) {
+            g_runtime.status.duplicate_input_reports++;
+            return false;
+        }
+    } else if (g_runtime.status.input_rate_supported && active == state->source &&
         g_runtime.status.input_valid &&
         g_runtime.input.timestamp_valid == state->timestamp_valid &&
         g_runtime.input.source_sequence_valid == state->source_sequence_valid &&
@@ -451,7 +461,7 @@ bool sf32lb52_bridge_runtime_accept_input(
         return false;
     }
     if (g_runtime.status.input_rate_supported) {
-        g_runtime.status.unique_input_reports++;
+        g_runtime.status.unique_input_reports += fresh_reports;
     }
     write_input(state);
     g_runtime.status.input_valid = 1U;

@@ -8,6 +8,7 @@
 #include "sf32lb52_bridge_runtime.h"
 #include "sf32lb52_ns2_protocol.h"
 #include "sf32lb52_usb_device.h"
+#include "sf32lb52_input_counter.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -48,12 +49,15 @@ typedef struct {
     uint8_t len;
     uint32_t timestamp_ms;
     uint32_t sensor_timestamp_us;
+    uint32_t source_report_count;
+    uint8_t source_report_count_valid;
     uint8_t data[SF32LB52_USB_HID_REPORT_SIZE];
 } pending_ns2_input_t;
 
 typedef struct {
     uint8_t len;
     uint32_t timestamp_ms;
+    uint32_t source_report_count;
     uint8_t body[DS5_CLASSIC_USB_INPUT_BODY_SIZE];
 } pending_ds5_input_t;
 
@@ -82,6 +86,12 @@ static uint32_t processed_ns2_input_sequence;
 static pending_ds5_input_t pending_ds5_input;
 static volatile uint32_t pending_ds5_input_sequence;
 static uint32_t processed_ds5_input_sequence;
+static sf32lb52_input_counter_t ns2_input_counter;
+static sf32lb52_input_counter_t ds5_input_counter;
+static volatile uint32_t ns2_input_epoch;
+static volatile uint32_t ds5_input_epoch;
+static uint32_t ns2_last_fresh_ms;
+static uint32_t ds5_last_fresh_ms;
 static pending_ds5_input_t latest_ds5_passthrough;
 static uint8_t latest_ds5_passthrough_valid;
 static cached_usb_input_t cached_usb_inputs[2];
@@ -251,15 +261,31 @@ int sf32lb52_app_test_rumble(uint16_t left_motor, uint16_t right_motor)
 
 static void bridge_on_ns2_input(uint8_t kind, const uint8_t *data, size_t len)
 {
+    uint8_t identity_valid;
     if (data == 0 || len == 0U || len > sizeof(pending_ns2_input.data)) {
         return;
+    }
+    if (kind == SF32LB52_NS2_NOTIFY_KIND_UNKNOWN) {
+        kind = len >= 16U ? SF32LB52_NS2_NOTIFY_KIND_FD2 :
+                            SF32LB52_NS2_NOTIFY_KIND_LEGACY;
+    }
+    identity_valid = (kind == SF32LB52_NS2_NOTIFY_KIND_FD2 && len >= 16U) ||
+                     (kind == SF32LB52_NS2_NOTIFY_KIND_LEGACY && len >= 11U);
+    if (identity_valid && sf32lb52_input_counter_record(
+            &ns2_input_counter, ns2_input_epoch,
+            kind == SF32LB52_NS2_NOTIFY_KIND_FD2,
+            kind == SF32LB52_NS2_NOTIFY_KIND_FD2 ? sf32lb52_input_le32(data) : 0U,
+            kind == SF32LB52_NS2_NOTIFY_KIND_LEGACY, data[0])) {
+        ns2_last_fresh_ms = platform_millis();
     }
 
     pending_ns2_input_sequence++;
     bridge_memory_barrier();
     pending_ns2_input.kind = kind;
     pending_ns2_input.len = (uint8_t)len;
-    pending_ns2_input.timestamp_ms = platform_millis();
+    pending_ns2_input.timestamp_ms = ns2_last_fresh_ms;
+    pending_ns2_input.source_report_count = ns2_input_counter.reports;
+    pending_ns2_input.source_report_count_valid = identity_valid;
     pending_ns2_input.sensor_timestamp_us = platform_micros();
     memcpy(pending_ns2_input.data, data, len);
     bridge_memory_barrier();
@@ -274,11 +300,16 @@ static void bridge_on_ds5_input(const uint8_t *usb_body,
     if (usb_body == 0 || len != DS5_CLASSIC_USB_INPUT_BODY_SIZE) {
         return;
     }
+    if (sf32lb52_input_counter_record(&ds5_input_counter, ds5_input_epoch,
+            1U, sf32lb52_input_le32(usb_body + 27U), 1U, usb_body[6])) {
+        ds5_last_fresh_ms = platform_millis();
+    }
 
     pending_ds5_input_sequence++;
     bridge_memory_barrier();
     pending_ds5_input.len = (uint8_t)len;
-    pending_ds5_input.timestamp_ms = platform_millis();
+    pending_ds5_input.timestamp_ms = ds5_last_fresh_ms;
+    pending_ds5_input.source_report_count = ds5_input_counter.reports;
     memcpy(pending_ds5_input.body, usb_body, len);
     bridge_memory_barrier();
     pending_ds5_input_sequence++;
@@ -540,6 +571,8 @@ static void bridge_apply_ns2_input(const pending_ns2_input_t *input)
         sf32lb52_bridge_state_from_ns2_snapshot(&snapshot,
                                                 input->sensor_timestamp_us,
                                                 &state) == 0) {
+        state.source_report_count = input->source_report_count;
+        state.source_report_count_valid = input->source_report_count_valid;
         (void)sf32lb52_bridge_runtime_accept_input(&state,
                                                    input->timestamp_ms);
     }
@@ -553,6 +586,8 @@ static void bridge_apply_ds5_input(const pending_ds5_input_t *input)
         sf32lb52_bridge_parse_ds5_usb_input(input->body,
                                             input->len,
                                             &state) == 0) {
+        state.source_report_count = input->source_report_count;
+        state.source_report_count_valid = 1U;
         if (sf32lb52_bridge_runtime_accept_input(&state,
                                                  input->timestamp_ms)) {
             latest_ds5_passthrough = *input;
@@ -1465,6 +1500,7 @@ int sf32lb52_app_main(void)
             (void)sf32lb52_bridge_runtime_remember_ds5(
                 ds5_status.active_address);
         } else if (ds5_was_connected) {
+            ds5_input_epoch++;
             sf32lb52_bridge_runtime_release_input(
                 SF32LB52_BRIDGE_INPUT_SOURCE_DUALSENSE_BT, now_ms);
         }
@@ -1483,6 +1519,7 @@ int sf32lb52_app_main(void)
                     ns2_status.last_candidate_addr);
             }
         } else if (ns2_was_connected) {
+            ns2_input_epoch++;
             sf32lb52_bridge_runtime_release_input(
                 SF32LB52_BRIDGE_INPUT_SOURCE_NS2PRO_BLE, now_ms);
         }

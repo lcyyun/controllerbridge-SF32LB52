@@ -2,7 +2,9 @@
 #define SF32LB52_FIRMWARE_VERSION_H
 
 #define SF32LB52_FIRMWARE_VERSION "0.8.0-preview.1"
-#define SF32LB52_FIRMWARE_BUILD "sf32-parity-20261031"
+#ifndef SF32LB52_FIRMWARE_BUILD
+#define SF32LB52_FIRMWARE_BUILD "source-archive"
+#endif
 #define SF32LB52_FIRMWARE_BOARD "sf32lb52-nano_n16r16"
 
 #endif
