@@ -27,7 +27,7 @@ try:
         revision += "-dirty"
 except (OSError, subprocess.CalledProcessError):
     revision = "source-archive"
-defines.append(("SF32LB52_FIRMWARE_BUILD", '\\"' + revision + '\\"'))
+defines.append('SF32LB52_FIRMWARE_BUILD=\\"' + revision + '\\"')
 
 group = DefineGroup("SF32LB52Port", src, CPPPATH=path, CPPDEFINES=defines, depend=[""])
 
